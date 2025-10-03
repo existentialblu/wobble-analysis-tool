@@ -10,6 +10,7 @@ const FileUploadSection = ({
   processing,
   progress,
   error,
+  info,
   onReset,
   hasResults,
   minDurationMinutes,
@@ -89,6 +90,12 @@ const FileUploadSection = ({
       {error && (
         <div className="bg-red-500/20 border border-red-500 rounded p-4 mt-4">
           <p className="text-red-200">Error: {error}</p>
+        </div>
+      )}
+
+      {info && (
+        <div className="bg-blue-500/20 border border-blue-400 rounded p-4 mt-4">
+          <p className="text-blue-200">{info}</p>
         </div>
       )}
     </div>
