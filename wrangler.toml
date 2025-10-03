@@ -1,5 +1,3 @@
 name = "wobble-analysis-tool"
 compatibility_date = "2025-10-03"
-
-[site]
-bucket = "./dist"
+pages_build_output_dir = "dist"
