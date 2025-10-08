@@ -9,7 +9,7 @@ const ResultsTable = ({ results }) => {
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 mb-6 border border-white/20">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-white">Individual Session Results</h3>
+        <h3 className="text-xl font-bold text-white">Nightly Results</h3>
         <button
           onClick={() => setShowTable(!showTable)}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded transition-colors"
@@ -25,7 +25,8 @@ const ResultsTable = ({ results }) => {
               <thead className="border-b border-white/20">
                 <tr>
                   <th className="text-left py-3 px-4">Date</th>
-                  <th className="text-left py-3 px-4">Filename</th>
+                  <th className="text-left py-3 px-4">Filename(s)</th>
+                  <th className="text-center py-3 px-4">Sessions</th>
                   <th className="text-center py-3 px-4">Duration</th>
                   <th className="text-center py-3 px-4">Flow Limitation</th>
                   <th className="text-center py-3 px-4">Regularity</th>
@@ -38,6 +39,9 @@ const ResultsTable = ({ results }) => {
                   <tr key={idx} className="border-b border-white/10 hover:bg-white/5">
                     <td className="py-3 px-4">{result.date.toLocaleDateString()}</td>
                     <td className="py-3 px-4 text-xs text-blue-200">{result.filename}</td>
+                    <td className="py-3 px-4 text-center text-sm text-gray-300">
+                      {result.sessionCount || 1}
+                    </td>
                     <td className="py-3 px-4 text-center text-sm">
                       {result.durationMinutes >= 60
                         ? `${(result.durationMinutes / 60).toFixed(1)}h`
@@ -54,14 +58,14 @@ const ResultsTable = ({ results }) => {
             </table>
           </div>
           <p className="text-blue-200 text-xs mt-4">
-            Total sessions analyzed: {results.length} | You can continue adding more files to expand your dataset
+            Total nights analyzed: {results.length} | You can continue adding more files to expand your dataset
           </p>
         </>
       )}
 
       {!showTable && (
         <p className="text-blue-200 text-sm">
-          {results.length} sessions analyzed | Click "Show Table" to view individual results
+          {results.length} nights analyzed | Click "Show Table" to view individual results
         </p>
       )}
     </div>

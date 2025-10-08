@@ -23,6 +23,42 @@ const SleepAnalyzer = () => {
   const [minDurationMinutes, setMinDurationMinutes] = useState(30);
   const [comparisonDates, setComparisonDates] = useState([{ date: '', label: '' }]);
 
+  const consolidateByNight = (sessionResults) => {
+    // Group sessions by calendar date
+    const nightMap = {};
+
+    sessionResults.forEach(session => {
+      const dateKey = session.date.toLocaleDateString();
+
+      if (!nightMap[dateKey]) {
+        nightMap[dateKey] = {
+          date: session.date,
+          sessions: [],
+          filenames: []
+        };
+      }
+
+      nightMap[dateKey].sessions.push(session);
+      nightMap[dateKey].filenames.push(session.filename);
+    });
+
+    // Consolidate each night's sessions using time-weighted averages
+    return Object.values(nightMap).map(night => {
+      const totalDuration = night.sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+      return {
+        date: night.date,
+        filename: night.filenames.join(', '),
+        flScore: night.sessions.reduce((sum, s) => sum + (s.flScore * s.durationMinutes), 0) / totalDuration,
+        periodicityIndex: night.sessions.reduce((sum, s) => sum + (s.periodicityIndex * s.durationMinutes), 0) / totalDuration,
+        regularityScore: night.sessions.reduce((sum, s) => sum + (s.regularityScore * s.durationMinutes), 0) / totalDuration,
+        eai: night.sessions.reduce((sum, s) => sum + (s.eai * s.durationMinutes), 0) / totalDuration,
+        durationMinutes: totalDuration,
+        sessionCount: night.sessions.length
+      };
+    }).sort((a, b) => a.date - b.date);
+  };
+
   const handleFileUpload = async (event) => {
     const uploadedFiles = Array.from(event.target.files);
     const validFiles = uploadedFiles.filter(f => f.name.endsWith('BRP.edf'));
@@ -37,7 +73,7 @@ const SleepAnalyzer = () => {
     setError(null);
     setProgress({ current: 0, total: validFiles.length });
 
-    const nightResults = [];
+    const sessionResults = [];
     let skippedCount = 0;
 
     for (let i = 0; i < validFiles.length; i++) {
@@ -67,13 +103,7 @@ const SleepAnalyzer = () => {
           durationMinutes
         };
 
-        nightResults.push(newResult);
-
-        setResults(prev => {
-          const updated = [...prev, newResult];
-          updated.sort((a, b) => a.date - b.date);
-          return updated;
-        });
+        sessionResults.push(newResult);
 
         setProgress({ current: i + 1, total: validFiles.length });
       } catch (err) {
@@ -81,8 +111,27 @@ const SleepAnalyzer = () => {
       }
     }
 
+    // Consolidate all sessions (existing + new) by night
+    setResults(prev => {
+      const allSessions = [...prev.flatMap(night =>
+        night.sessionCount > 1
+          ? Array(night.sessionCount).fill(null).map((_, idx) => ({
+              date: night.date,
+              filename: night.filename.split(', ')[idx] || night.filename,
+              flScore: night.flScore,
+              periodicityIndex: night.periodicityIndex,
+              regularityScore: night.regularityScore,
+              eai: night.eai,
+              durationMinutes: night.durationMinutes / night.sessionCount
+            }))
+          : [night]
+      ), ...sessionResults];
+
+      return consolidateByNight(allSessions);
+    });
+
     if (skippedCount > 0) {
-      setInfo(`Processed ${nightResults.length} sessions, skipped ${skippedCount} sessions under ${minDurationMinutes} minutes`);
+      setInfo(`Processed ${sessionResults.length} sessions, skipped ${skippedCount} sessions under ${minDurationMinutes} minutes`);
     }
 
     setProcessing(false);
@@ -178,7 +227,7 @@ const SleepAnalyzer = () => {
 
         return `
 ${period.name.toUpperCase()}${period.label ? ' (' + period.label + ')' : ''}
-  Sessions: ${period.results.length}
+  Nights: ${period.results.length}
   Total Duration: ${(totalDuration / 60).toFixed(1)} hours
 
   Flow Limitation:
