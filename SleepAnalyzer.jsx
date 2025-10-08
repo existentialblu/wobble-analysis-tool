@@ -15,7 +15,7 @@ import MetricsGuide from './components/MetricsGuide.jsx';
 
 const SleepAnalyzer = () => {
   const [files, setFiles] = useState([]);
-  const [results, setResults] = useState([]);
+  const [rawSessions, setRawSessions] = useState([]); // Store raw session data
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
@@ -24,27 +24,46 @@ const SleepAnalyzer = () => {
   const [comparisonDates, setComparisonDates] = useState([{ date: '', label: '' }]);
 
   const consolidateByNight = (sessionResults) => {
-    // Group sessions by calendar date
-    const nightMap = {};
+    // Group sessions by sleep period (sessions within 2 hours belong to same night)
+    if (sessionResults.length === 0) return [];
 
-    sessionResults.forEach(session => {
-      const dateKey = session.date.toLocaleDateString();
+    // Sort by date first
+    const sorted = [...sessionResults].sort((a, b) => a.date - b.date);
 
-      if (!nightMap[dateKey]) {
-        nightMap[dateKey] = {
+    const nights = [];
+    let currentNight = {
+      date: sorted[0].date,
+      sessions: [sorted[0]],
+      filenames: [sorted[0].filename]
+    };
+
+    for (let i = 1; i < sorted.length; i++) {
+      const session = sorted[i];
+      const lastSession = currentNight.sessions[currentNight.sessions.length - 1];
+      const hoursSinceLastSession = (session.date - lastSession.date) / (1000 * 60 * 60);
+
+      // If more than 2 hours since last session, start a new night
+      if (hoursSinceLastSession > 2) {
+        nights.push(currentNight);
+        currentNight = {
           date: session.date,
-          sessions: [],
-          filenames: []
+          sessions: [session],
+          filenames: [session.filename]
         };
+      } else {
+        // Same night - add to current
+        currentNight.sessions.push(session);
+        currentNight.filenames.push(session.filename);
       }
+    }
 
-      nightMap[dateKey].sessions.push(session);
-      nightMap[dateKey].filenames.push(session.filename);
-    });
+    // Don't forget the last night
+    nights.push(currentNight);
 
     // Consolidate each night's sessions using time-weighted averages
-    return Object.values(nightMap).map(night => {
+    return nights.map(night => {
       const totalDuration = night.sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const isNap = totalDuration < 240; // Less than 4 hours = nap
 
       return {
         date: night.date,
@@ -54,10 +73,14 @@ const SleepAnalyzer = () => {
         regularityScore: night.sessions.reduce((sum, s) => sum + (s.regularityScore * s.durationMinutes), 0) / totalDuration,
         eai: night.sessions.reduce((sum, s) => sum + (s.eai * s.durationMinutes), 0) / totalDuration,
         durationMinutes: totalDuration,
-        sessionCount: night.sessions.length
+        sessionCount: night.sessions.length,
+        isNap: isNap
       };
     }).sort((a, b) => a.date - b.date);
   };
+
+  // Consolidated results for display
+  const results = consolidateByNight(rawSessions);
 
   const handleFileUpload = async (event) => {
     const uploadedFiles = Array.from(event.target.files);
@@ -111,23 +134,11 @@ const SleepAnalyzer = () => {
       }
     }
 
-    // Consolidate all sessions (existing + new) by night
-    setResults(prev => {
-      const allSessions = [...prev.flatMap(night =>
-        night.sessionCount > 1
-          ? Array(night.sessionCount).fill(null).map((_, idx) => ({
-              date: night.date,
-              filename: night.filename.split(', ')[idx] || night.filename,
-              flScore: night.flScore,
-              periodicityIndex: night.periodicityIndex,
-              regularityScore: night.regularityScore,
-              eai: night.eai,
-              durationMinutes: night.durationMinutes / night.sessionCount
-            }))
-          : [night]
-      ), ...sessionResults];
-
-      return consolidateByNight(allSessions);
+    // Add new sessions to raw sessions list (deduplicate by filename)
+    setRawSessions(prev => {
+      const existingFilenames = new Set(prev.map(s => s.filename));
+      const newSessions = sessionResults.filter(s => !existingFilenames.has(s.filename));
+      return [...prev, ...newSessions];
     });
 
     if (skippedCount > 0) {
@@ -158,7 +169,7 @@ const SleepAnalyzer = () => {
 
   const handleReset = () => {
     setFiles([]);
-    setResults([]);
+    setRawSessions([]);
     setProcessing(false);
     setProgress({ current: 0, total: 0 });
     setError(null);

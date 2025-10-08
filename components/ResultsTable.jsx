@@ -37,7 +37,10 @@ const ResultsTable = ({ results }) => {
               <tbody>
                 {results.map((result, idx) => (
                   <tr key={idx} className="border-b border-white/10 hover:bg-white/5">
-                    <td className="py-3 px-4">{result.date.toLocaleDateString()}</td>
+                    <td className="py-3 px-4">
+                      {result.date.toLocaleDateString()}
+                      {result.isNap && <span className="ml-2 text-xs bg-yellow-500/30 text-yellow-200 px-2 py-0.5 rounded">NAP</span>}
+                    </td>
                     <td className="py-3 px-4 text-xs text-blue-200">{result.filename}</td>
                     <td className="py-3 px-4 text-center text-sm text-gray-300">
                       {result.sessionCount || 1}
