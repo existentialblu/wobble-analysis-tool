@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arousal Threshold Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #4a9eff;
+        }
+        .control-group {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #2a2a2a;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #3a8eef;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #status {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #2a2a2a;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #4a9eff;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #2a2a2a;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        th {
+            background-color: #333;
+            color: #4a9eff;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #4a9eff;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arousal Threshold Analyzer</h1>
+    <p>Analyzes flow limitation nadirs and recovery breath patterns to estimate arousal thresholds.</p>
+
+    <div class="control-group">
+        <label for="fileInput">Single File Analysis:</label>
+        <input type="file" id="fileInput" accept=".edf">
+        <button id="processBtn" disabled>Analyze Single File</button>
+    </div>
+
+    <div class="control-group">
+        <label for="folderInput">Longitudinal Analysis (Multiple Files):</label>
+        <input type="file" id="folderInput" accept=".edf" multiple webkitdirectory directory>
+        <div style="margin-top: 10px;">
+            <label for="minDuration">Minimum Duration (minutes): <span id="minDurationValue">30</span></label>
+            <input type="range" id="minDuration" min="10" max="180" value="30" step="10" style="width: 200px;">
+        </div>
+        <button id="processFolderBtn" disabled>Analyze Multiple Files</button>
+    </div>
+
+    <div class="control-group">
+        <button id="resetBtn">Reset All</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div id="singleResults" style="display: none;">
+        <h2>Single File Analysis Results</h2>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Arousals Detected</div>
+                <div class="stat-value" id="totalArousals">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mean Flow Remaining (%)</div>
+                <div class="stat-value" id="meanNadir">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mean Nadir-to-Arousal Time (s)</div>
+                <div class="stat-value" id="meanRecoveryTime">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Median Flow Remaining (%)</div>
+                <div class="stat-value" id="medianNadir">0</div>
+            </div>
+        </div>
+
+        <h3>Individual Arousal Events</h3>
+        <table id="arousalTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Flow Remaining (%)</th>
+                    <th>Nadir-to-Arousal (s)</th>
+                    <th>Recovery Breath Size (%)</th>
+                </tr>
+            </thead>
+            <tbody id="arousalTableBody">
+            </tbody>
+        </table>
+
+        <button id="downloadBtn">Download CSV</button>
+    </div>
+
+    <div id="longitudinalResults" style="display: none;">
+        <h2>Longitudinal Analysis Results</h2>
+
+        <div id="longitudinalCharts"></div>
+
+        <div class="control-group">
+            <button id="toggleLongitudinalTable">▼ Show Detailed Results</button>
+        </div>
+
+        <div id="longitudinalTableContainer" style="display: none;">
+            <h3>Nightly Statistics</h3>
+            <table id="longitudinalTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Duration (h)</th>
+                        <th>Arousals</th>
+                        <th>Mean Flow Remaining (%)</th>
+                        <th>Median Flow Remaining (%)</th>
+                        <th>Mean Nadir-to-Arousal (s)</th>
+                    </tr>
+                </thead>
+                <tbody id="longitudinalTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <button id="downloadLongitudinalBtn">Download Longitudinal CSV</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="arousal-threshold.js"></script>
+    <script src="arousal-threshold-longitudinal.js"></script>
+</body>
+</html>
