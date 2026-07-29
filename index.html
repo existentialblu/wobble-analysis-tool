@@ -1,12 +1,415 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wobble Analysis Tool (WAT) v0.22</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08111f">
+  <title>Wobble Analysis Tool</title>
+  <style>
+    :root{color-scheme:dark;--bg:#08111f;--panel:#101d31;--panel2:#14243b;--line:#29405f;--text:#edf5ff;--muted:#9eb1ca;--blue:#61a9ff;--cyan:#55d6d0;--orange:#ffad66;--pink:#f58ab6;--good:#69d39b;--bad:#ff7c86}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#123360 0,#08111f 42%);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}
+    main{width:min(1180px,calc(100% - 32px));margin:auto;padding:44px 0 70px}header{text-align:center;margin-bottom:26px}h1{margin:0;font-size:clamp(30px,5vw,48px);letter-spacing:-.04em}header p{margin:7px 0;color:#bed0e8}.privacy{color:var(--cyan)}
+    .notice,.card{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px #0004}.notice{padding:14px 18px;margin-bottom:16px;color:#f5d6a6}.card{padding:22px;margin-top:16px}
+    .upload{border:1px dashed #4773a7;border-radius:13px;padding:26px;text-align:center;background:#0b1729}.upload.drag{border-color:var(--cyan);background:#102b3d}.upload strong{display:block;font-size:18px}.upload p,.hint{color:var(--muted)}button,.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:9px;padding:11px 16px;background:#2677d8;color:white;font-weight:700;cursor:pointer}button:hover,.button:hover{filter:brightness(1.12)}button.secondary{background:#263a55}.button input{display:none}
+    .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}.controls label{color:var(--muted);font-size:12px}.controls input,.controls select{width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#0b1728;color:var(--text)}
+    .progress{height:7px;background:#22324a;border-radius:99px;overflow:hidden;margin-top:16px}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--cyan));transition:width .2s}
+    .status{margin-top:10px;color:var(--muted)}.status.error{color:var(--bad)}.hidden{display:none!important}button:disabled{opacity:.45;cursor:not-allowed;filter:none}.picker{position:relative}.picker-menu{position:absolute;z-index:5;top:calc(100% + 7px);left:0;min-width:205px;padding:7px;background:#14243b;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 28px #0008}.picker-menu button{display:block;width:100%;text-align:left;background:transparent;padding:9px 10px}.picker-menu button:hover{background:#263a55}
+    .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.metric{padding:17px;border-radius:12px;background:var(--panel2);border:1px solid var(--line)}.metric b{font-size:26px;display:block}.metric span{color:var(--muted);font-size:12px}.metric small{display:block;margin-top:5px;color:#cbd9eb}
+    table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:12px}td.num{text-align:right;font-variant-numeric:tabular-nums}.month-row th{padding:0;background:#0b1728}.month-toggle{width:100%;justify-content:flex-start;border-radius:0;background:transparent;color:var(--text);padding:12px}.month-toggle:hover{filter:none;background:#162a45}.month-toggle .month-count{margin-left:auto;color:var(--muted);font-weight:600}.nap-badge{display:inline-block;padding:1px 6px;border-radius:99px;background:#3d315a;color:#e6d9ff;font-size:11px;text-decoration:none}
+    canvas{display:block;width:100%;height:245px;background:#0a1525;border-radius:10px}.chart-stack{display:grid;gap:24px}.chart-panel{padding-top:18px;border-top:1px solid var(--line)}.chart-panel:first-child{padding-top:0;border-top:0}.chart-panel h3{margin:0}.chart-panel p{margin:3px 0 10px;color:var(--muted);font-size:12px}.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:10px 0}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.line-key{display:inline-block;width:20px;height:0;border-top:3px solid currentColor;vertical-align:middle;margin-right:6px}.line-key.raw{border-top-width:1px;opacity:.45}#nightOverviewCanvas,#nightRangeCanvas{height:285px;cursor:crosshair;touch-action:none}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.toolbar h2{margin:0}.guide{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.guide div{background:#0b1728;padding:15px;border-radius:10px}.guide h3{margin:0 0 5px;font-size:15px}.guide p{margin:0;color:var(--muted)}
+    .night-link{padding:0;background:transparent;color:var(--blue);font-weight:700;text-decoration:underline;text-underline-offset:3px}.night-link:hover{filter:none;color:var(--cyan)}tr.is-selected{background:#16304d}
+    @media(max-width:850px){.controls,.metrics{grid-template-columns:repeat(2,1fr)}.guide{grid-template-columns:1fr}}@media(max-width:520px){.controls,.metrics{grid-template-columns:1fr}.card{padding:15px}main{width:min(100% - 20px,1180px)}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Wobble Analysis Tool <span style="color:var(--cyan)">v0.5</span></h1>
+    <p>Dynamic ventilatory-control trend analysis</p>
+    <div class="privacy">🔒 Files stay on this device. Nothing is uploaded.</div>
+  </header>
+  <div class="notice"><b>Experimental—not medical advice.</b> Results are estimates from PAP flow data, not a diagnosis or a substitute for polysomnography or clinical care.</div>
+
+  <section class="card">
+    <div id="drop" class="upload">
+      <strong>Drop ResMed <code>*_BRP.edf</code> files here</strong>
+      <p>Queue a whole DATALOG folder or individual nightly flow files. Nothing runs until you press Process.</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <div class="picker">
+          <button id="selectData" type="button">Select data ▾</button>
+          <div id="selectMenu" class="picker-menu hidden">
+            <button id="selectFolder" type="button">DATALOG folder</button>
+            <button id="selectFiles" type="button">Individual EDF files</button>
+          </div>
+        </div>
+      </div>
+      <input id="folder" class="hidden" type="file" webkitdirectory directory multiple>
+      <input id="files" class="hidden" type="file" accept=".edf" multiple>
+    </div>
+    <div class="controls">
+      <label>Noise filtering
+        <select id="filter"><option value="balanced">Balanced</option><option value="light">Light</option><option value="strong">Strong</option><option value="off">Off (diagnostic)</option></select>
+      </label>
+      <label>Minimum session
+        <select id="duration"><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select>
+      </label>
+      <label>Artifact rejection
+        <select id="artifact"><option value="0.32">Standard</option><option value="0.20">Strict</option><option value="0.45">Permissive</option></select>
+      </label>
+      <label>Night grouping gap
+        <select id="gap"><option value="2">2 hours</option><option value="3">3 hours</option><option value="4">4 hours</option></select>
+      </label>
+    </div>
+    <div id="progress" class="progress hidden"><i></i></div>
+    <div id="progressDetail" class="hint hidden" style="margin-top:6px;text-align:right">0%</div>
+    <div id="status" class="status">Ready.</div>
+    <div id="preprocessNote" class="hint hidden" style="margin-top:8px">
+      Preprocessing includes despiking, baseline correction, and artifact screening. Large DATALOG archives may take several minutes; the page can pause briefly on each flow file.
+    </div>
+    <button id="process" type="button" disabled style="display:block;width:100%;margin-top:14px;padding:14px;font-size:16px">Process selected</button>
+  </section>
+
+  <div id="results" class="hidden">
+    <section class="card">
+      <div class="toolbar"><h2>Analysis summary</h2><button id="reset" class="secondary">Reset</button></div>
+      <div class="metrics">
+        <div class="metric"><b id="nightCount">0</b><span>SLEEP PERIODS</span><small id="periodBreakdown">0 nights · 0 naps</small></div>
+        <div class="metric"><b id="compositeMean">—</b><span>SLEEP DISRUPTION</span><small>composite score</small></div>
+        <div class="metric"><b id="artifactPct">0%</b><span>ARTIFACTS REMOVED</span><small>unreliable windows</small></div>
+        <div class="metric"><b id="piMean">—</b><span>PERIODICITY</span><small>duration weighted</small></div>
+        <div class="metric"><b id="eaiMean">—</b><span>EST. AROUSAL INDEX</span><small>events / hour</small></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="toolbar"><h2>Sleep-period trend</h2><button id="download">Download CSV</button></div>
+      <div class="legend"><span><i class="line-key raw"></i>Sleep-period value</span><span style="color:var(--cyan)"><i class="line-key"></i>Trailing 7-day average</span></div>
+      <div class="chart-stack">
+        <div class="chart-panel"><h3>Sleep Disruption Score</h3><p>Dynamic composite: regularity and periodicity share half the score; EAI supplies the other half. Lower is better.</p><canvas id="chartComposite" role="img" aria-label="Sleep Disruption Score sleep-period values and trailing seven-day average"></canvas></div>
+        <div class="chart-panel"><h3>Regularity</h3><p>Repetitive breathing oscillations in the 30–90-second period range, 0–100. Higher values indicate more repeatable oscillations.</p><canvas id="chartRegularity" role="img" aria-label="Regularity of 30 to 90 second breathing oscillations, sleep-period values and trailing seven-day average"></canvas></div>
+        <div class="chart-panel"><h3>Periodicity</h3><p>Power in the periodic-breathing frequency range, 0–100. Lower is better.</p><canvas id="chartPeriodicity" role="img" aria-label="Periodicity sleep-period values and trailing seven-day average"></canvas></div>
+        <div class="chart-panel"><h3>Estimated Arousal Index</h3><p>Intentionally sensitive respiratory-instability events per hour, measured against a local baseline. Experimental; trend use only.</p><canvas id="chartEai" role="img" aria-label="Estimated arousal index sleep-period values and trailing seven-day average"></canvas></div>
+      </div>
+      <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Sessions</th><th>Hours</th><th>Quality</th><th>Filter</th><th class="num">Disruption</th><th class="num">Regularity</th><th class="num">Periodicity</th><th class="num">EAI</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>
+    <section id="nightDetail" class="card hidden">
+      <div class="toolbar"><h2 id="nightDetailTitle">Selected night</h2><button id="closeNight" class="secondary" type="button">Close</button></div>
+      <div id="nightDetailMeta" class="hint"></div>
+      <p class="hint"><b>High loop gain (HLG)</b> means the breathing-control system tends to overcorrect disturbances, producing repeated overshoot-and-undershoot oscillations. The orange ribbon is an exploratory proxy derived from regularity and periodicity—not a direct clinical measurement.</p>
+      <div id="nightOverviewStatus" class="status">Preparing full-night overview…</div>
+      <canvas id="nightOverviewCanvas" class="hidden" role="img" aria-label="Downsampled full-night ventilation overview with a rolling high-loop-gain proxy and eAI activity"></canvas>
+      <div id="nightOverviewLegend" class="legend hidden"><span style="color:var(--cyan)"><i class="line-key"></i>Ventilation envelope</span><span style="color:var(--orange)"><i class="line-key"></i>High loop gain (HLG) proxy</span><span style="color:var(--pink)"><i class="line-key"></i>eAI activity</span><span><i class="line-key raw"></i>Session boundary</span></div>
+      <div class="toolbar" style="margin:8px 0 0"><div id="nightSelectionInfo" class="hint">Drag across the overview to select a time range.</div><button id="clearNightSelection" class="secondary hidden" type="button">Clear selection</button></div>
+      <div id="nightRangeDetail" class="chart-panel hidden">
+        <div class="toolbar"><h3>Selected range detail</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="previousRange" class="secondary" type="button" disabled>&larr; Previous</button><button id="zoomInRange" class="secondary" type="button" disabled>Zoom in</button><button id="zoomOutRange" class="secondary" type="button" disabled>Zoom out</button><button id="nextRange" class="secondary" type="button" disabled>Next &rarr;</button></div></div>
+        <p id="nightRangeStatus">Preparing higher-resolution raw flow…</p>
+        <canvas id="nightRangeCanvas" role="img" aria-label="Higher-resolution raw flow rate with a rolling high-loop-gain proxy and exact eAI trigger ticks"></canvas>
+        <div class="hint">Drag across this plot to zoom into that interval. Click once to halve the window around that time.</div>
+        <div class="legend"><span style="color:var(--cyan)"><i class="line-key"></i>Raw flow rate</span><span style="color:var(--blue)"><i class="line-key raw"></i>Per-pixel raw range</span><span style="color:var(--orange)"><i class="line-key"></i>High loop gain (HLG) proxy</span><span style="color:var(--pink)"><i class="line-key"></i>eAI trigger</span></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>What changed</h2>
+      <div class="guide">
+        <div><h3>Robust despiking</h3><p>A rolling median/MAD filter suppresses isolated spikes without smearing breath shape.</p></div>
+        <div><h3>Baseline correction</h3><p>A slow adaptive baseline removes sensor drift before breath boundaries are detected.</p></div>
+        <div><h3>Artifact-aware windows</h3><p>Flatline, clipping, extreme noise, and implausible respiratory-rate windows are excluded and reported.</p></div>
+        <div><h3>Stable periodicity</h3><p>Hann-windowed, overlapping spectra reduce leakage and prevent a single transient from dominating the night.</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+"use strict";
+const $=s=>document.querySelector(s), state={sessions:[],queued:[],processing:false,selectedNight:null,nightOverview:null,nightSelection:null,selectionAnchor:null,rangeDetail:null,rangeSelectionAnchor:null,rangeSelectionPreview:null,expandedMonths:new Set(),detailRequest:0,rangeRequest:0};
+const NAP_MAX_MINUTES=180;
+const median=a=>{if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
+const quantile=(a,q)=>{if(!a.length)return 0;const b=[...a].sort((x,y)=>x-y),p=(b.length-1)*q,i=Math.floor(p);return b[i]+((b[i+1]??b[i])-b[i])*(p-i)};
+const mad=a=>{const m=median(a);return median(a.map(x=>Math.abs(x-m)))||1e-9};
+const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function parseEDF(buffer){
+  if(buffer.byteLength<256)throw Error("File is too small to be EDF.");
+  const v=new DataView(buffer),d=new TextDecoder("ascii"),txt=(o,n)=>d.decode(new Uint8Array(buffer,o,n)).trim(),num=(o,n)=>Number(txt(o,n));
+  const h={date:txt(168,8),time:txt(176,8),bytes:num(184,8),records:num(236,8),duration:num(244,8),signals:num(252,4)};
+  if(!Number.isFinite(h.bytes)||!Number.isFinite(h.records)||!Number.isFinite(h.duration)||!Number.isFinite(h.signals)||h.signals<1)throw Error("Invalid EDF header.");
+  let o=256,s=Array.from({length:h.signals},(_,i)=>({label:txt(o+i*16,16)}));o+=h.signals*16;
+  for(const [key,width,parser] of [["transducer",80,String],["unit",8,String],["pmin",8,Number],["pmax",8,Number],["dmin",8,Number],["dmax",8,Number],["prefilter",80,String],["samples",8,Number],["reserved",32,String]]){
+    for(let i=0;i<h.signals;i++){const x=txt(o+i*width,width);s[i][key]=parser===Number?Number(x):x}o+=h.signals*width;
+  }
+  const fi=s.findIndex(x=>/(flow|flw)/i.test(x.label));if(fi<0)throw Error("No flow signal found.");
+  const fs=s[fi].samples/h.duration,recordBytes=s.reduce((z,x)=>z+x.samples*2,0),prefix=s.slice(0,fi).reduce((z,x)=>z+x.samples*2,0),sig=s[fi];
+  const available=Math.floor((buffer.byteLength-h.bytes)/recordBytes),records=Math.min(h.records<0?available:h.records,available);
+  const flow=new Float64Array(records*sig.samples);
+  const scale=(sig.pmax-sig.pmin)/(sig.dmax-sig.dmin);if(!Number.isFinite(scale)||fs<1||fs>1000)throw Error("Unsupported flow calibration or sampling rate.");
+  for(let r=0;r<records;r++){const base=h.bytes+r*recordBytes+prefix,dest=r*sig.samples;for(let i=0;i<sig.samples;i++)flow[dest+i]=(v.getInt16(base+i*2,true)-sig.dmin)*scale+sig.pmin}
+  const [dd,mm,yy]=h.date.split(".").map(Number),year=yy<85?2000+yy:1900+yy,[hh,mi,ss]=h.time.split(".").map(Number);
+  return{flow,fs,date:new Date(year,mm-1,dd,hh||0,mi||0,ss||0),duration:flow.length/fs/60};
+}
+function preprocess(raw,fs,mode){
+  const out=new Float64Array(raw.length),stride=Math.max(1,Math.round(fs/5)),sample=[],diffs=[];
+  for(let i=0;i<raw.length;i+=stride){const v=Number.isFinite(raw[i])?raw[i]:0;sample.push(v);if(i>=stride)diffs.push(v-(Number.isFinite(raw[i-stride])?raw[i-stride]:0))}
+  if(mode==="off"){for(let i=0;i<raw.length;i++)out[i]=Number.isFinite(raw[i])?raw[i]:0;return{data:out,removed:0}}
+  const cfg={light:[10,8],balanced:[7,6],strong:[5,4]}[mode],globalMed=median(sample),signalScale=1.4826*mad(sample),diffScale=1.4826*mad(diffs),spikeLimit=Math.max(diffScale*cfg[0],signalScale*.35);
+  let removed=0,baseline=globalMed,low=0,previous=globalMed;const driftA=1-Math.exp(-1/(fs*45)),lowA=1-Math.exp(-1/(fs*cfg[1]));
+  for(let i=0;i<raw.length;i++){let v=Number.isFinite(raw[i])?raw[i]:previous;if(Math.abs(v-previous)>spikeLimit){v=previous;removed++}baseline+=driftA*(v-baseline);const centered=v-baseline;low+=lowA*(centered-low);out[i]=low;previous=v}
+  return{data:out,removed:removed/out.length};
+}
+function windowQuality(x,fs,threshold){
+  const seconds=30,n=Math.round(seconds*fs),valid=new Uint8Array(x.length).fill(1);let rejected=0,total=0;
+  const sample=[];for(let i=0;i<x.length;i+=Math.max(1,Math.round(fs)))sample.push(x[i]);const scale=1.4826*mad(sample),clip=quantile(sample.map(Math.abs),.999);
+  const sampleStep=Math.max(1,Math.round(fs/5));
+  for(let i=0;i<x.length;i+=n){const w=[],d=[];let flat=0,clipped=0,prev=x[i];for(let j=i;j<Math.min(x.length,i+n);j+=sampleStep){const v=x[j];w.push(v);if(w.length>1){d.push(v-prev);if(v===prev)flat++}if(Math.abs(v)>=clip)clipped++;prev=v}const range=Math.max(...w)-Math.min(...w),noise=1.4826*mad(d),bad=range<scale*.08||noise>scale*threshold||flat/Math.max(1,w.length-1)>.08||clipped/w.length>.035;if(bad){valid.fill(0,i,Math.min(x.length,i+n));rejected++}total++}
+  return{valid,rejected:rejected/Math.max(1,total)};
+}
+function breaths(x,fs,valid){
+  const sample=[];for(let i=0;i<x.length;i+=Math.max(1,Math.round(fs/2)))if(valid[i])sample.push(Math.abs(x[i]));const amp=Math.max(1e-6,quantile(sample,.65)),start=.12*amp,end=-.06*amp,min=Math.round(.55*fs),max=Math.round(12*fs),b=[];let on=false,s=0,peak=-Infinity,area=0;
+  for(let i=1;i<x.length;i++){if(!valid[i]){on=false;continue}if(!on&&x[i-1]<=start&&x[i]>start){on=true;s=i;peak=x[i];area=0}else if(on){peak=Math.max(peak,x[i]);if(x[i]>0)area+=x[i]/fs;if(x[i]<end||i-s>max){const len=i-s;if(len>=min&&len<=max&&peak>.25*amp)b.push({start:s,end:i,time:s/fs,peak,volume:area});on=false}}}return b;
+}
+function estimateArousalsOG(flowData,samplingRate,totalDurationSeconds,includeEvents=false){
+  const ogBreaths=[];let inInspiration=false,currentBreath=null;
+  for(let i=1;i<flowData.length;i++){
+    if(flowData[i]>0&&flowData[i-1]<=0){inInspiration=true;currentBreath={start:i,inspStart:i,inspEnd:i,startTime:i/samplingRate};ogBreaths.push(currentBreath)}
+    else if(flowData[i]<=0&&flowData[i-1]>0){if(inInspiration&&currentBreath)currentBreath.inspEnd=i;inInspiration=false}
+  }
+  if(ogBreaths.length<10)return includeEvents?{eai:0,events:[]}:0;
+  const breathMetrics=[];
+  for(let i=1;i<ogBreaths.length;i++){
+    const breath=ogBreaths[i],previous=ogBreaths[i-1],duration=breath.startTime-previous.startTime;
+    if(duration<=0||duration>20)continue;
+    let tidalVolume=0;for(let j=breath.inspStart;j<breath.inspEnd;j++)tidalVolume+=Math.abs(flowData[j])/samplingRate;
+    breathMetrics.push({time:breath.startTime,rate:60/duration,volume:tidalVolume});
+  }
+  if(breathMetrics.length<10)return includeEvents?{eai:0,events:[]}:0;
+  const arousals=[];
+  for(let i=0;i<breathMetrics.length;i++){
+    const current=breathMetrics[i],baselineStart=Math.max(0,i-Math.floor(120/(60/current.rate))),baseline=breathMetrics.slice(baselineStart,i);
+    if(baseline.length<5)continue;
+    const baselineRate=baseline.reduce((sum,m)=>sum+m.rate,0)/baseline.length,baselineVolume=baseline.reduce((sum,m)=>sum+m.volume,0)/baseline.length,rateIncrease=(current.rate-baselineRate)/baselineRate,volumeIncrease=(current.volume-baselineVolume)/baselineVolume;
+    if((rateIncrease>.20||volumeIncrease>.30)&&(!arousals.length||current.time-arousals.at(-1).time>15))arousals.push({time:current.time,strength:Math.max(rateIncrease/.20,volumeIncrease/.30)});
+  }
+  const hours=totalDurationSeconds/3600,eai=hours>0?arousals.length/hours:0;return includeEvents?{eai,events:arousals}:eai;
+}
+function buildDynamicsTimeline(data,fs,valid){
+  const step=Math.round(5*fs),ventWindow=Math.round(60*fs),ventilation=[],areaPrefix=new Float64Array(data.length+1),validPrefix=new Uint32Array(data.length+1);
+  for(let i=0;i<data.length;i++){areaPrefix[i+1]=areaPrefix[i]+Math.max(0,data[i])/fs;validPrefix[i+1]=validPrefix[i]+valid[i]}
+  for(let i=0;i+ventWindow<data.length;i+=step){const area=areaPrefix[i+ventWindow]-areaPrefix[i],ok=validPrefix[i+ventWindow]-validPrefix[i];ventilation.push({time:(i+ventWindow/2)/fs,value:area,quality:ok/ventWindow})}
+  const N=128,hop=12;if(ventilation.length<N)return[];
+  const kernels=[];for(let k=1;k<N/2;k++){const cos=new Float64Array(N),sin=new Float64Array(N);for(let n=0;n<N;n++){const angle=2*Math.PI*k*n/N;cos[n]=Math.cos(angle);sin[n]=Math.sin(angle)}kernels.push({k,cos,sin})}
+  const points=[];for(let start=0;start+N<=ventilation.length;start+=hop){const window=ventilation.slice(start,start+N),local=window.map(point=>point.value),low=quantile(local,.05),high=quantile(local,.95),robust=local.map(value=>clamp(value,low,high)),center=median(robust),detrended=robust.map(value=>value-center);let regularity=0;for(let lag=6;lag<=18;lag++){let dot=0,a2=0,b2=0;for(let i=lag;i<N;i++){dot+=detrended[i]*detrended[i-lag];a2+=detrended[i]*detrended[i];b2+=detrended[i-lag]*detrended[i-lag]}if(a2>0&&b2>0)regularity=Math.max(regularity,dot/Math.sqrt(a2*b2))}
+    const windowed=detrended.map((value,i)=>value*(.5-.5*Math.cos(2*Math.PI*i/(N-1))));let total=0,band=0;for(const kernel of kernels){let re=0,im=0;for(let n=0;n<N;n++){re+=windowed[n]*kernel.cos[n];im-=windowed[n]*kernel.sin[n]}const power=re*re+im*im;total+=power;const frequency=kernel.k/(N*5);if(frequency>=.01&&frequency<=.03)band+=power}
+    const regularityScore=clamp(regularity*100,0,100),periodicityScore=total?clamp(band/total*150,0,100):0,confidence=mean(window.map(point=>point.quality));points.push({time:ventilation[start+N/2].time,regularity:regularityScore,periodicity:periodicityScore,hlg:Math.sqrt(regularityScore*periodicityScore),confidence});
+  }
+  return points;
+}
+function buildNightOverview(raw,fs,filterMode,artifactLimit,targetPoints=1400){
+  const p=preprocess(raw,fs,filterMode),quality=windowQuality(p.data,fs,artifactLimit),og=estimateArousalsOG(raw,fs,raw.length/fs,true),bin=Math.max(1,Math.ceil(p.data.length/targetPoints)),points=[];
+  for(let start=0;start<p.data.length;start+=bin){const end=Math.min(p.data.length,start+bin);let envelope=0;for(let i=start;i<end;i++)envelope+=Math.abs(p.data[i]);points.push({time:(start+end)/(2*fs),value:envelope/(end-start)})}
+  return{points,duration:p.data.length/fs,eaiEvents:og.events,dynamics:buildDynamicsTimeline(p.data,fs,quality.valid)};
+}
+function buildRangeDetail(raw,fs,filterMode,artifactLimit,fromSeconds,toSeconds,targetPoints=3000){
+  const first=clamp(Math.floor(fromSeconds*fs),0,raw.length),last=clamp(Math.ceil(toSeconds*fs),first,raw.length),bin=Math.max(1,Math.ceil((last-first)/targetPoints)),points=[],og=estimateArousalsOG(raw,fs,raw.length/fs,true);
+  for(let start=first;start<last;start+=bin){const end=Math.min(last,start+bin);let low=Infinity,high=-Infinity,sum=0;for(let i=start;i<end;i++){const value=Number.isFinite(raw[i])?raw[i]:0;low=Math.min(low,value);high=Math.max(high,value);sum+=value}points.push({time:(start+end)/(2*fs),low,high,mean:sum/(end-start)})}
+  return{points,from:first/fs,to:last/fs,eaiEvents:og.events.filter(event=>event.time>=first/fs&&event.time<=last/fs)};
+}
+function analyze(raw,fs,filterMode,artifactLimit){
+  const p=preprocess(raw,fs,filterMode),q=windowQuality(p.data,fs,artifactLimit),bs=breaths(p.data,fs,q.valid);
+  const step=Math.round(5*fs),win=Math.round(60*fs),mv=[],areaPrefix=new Float64Array(p.data.length+1),validPrefix=new Uint32Array(p.data.length+1);for(let i=0;i<p.data.length;i++){areaPrefix[i+1]=areaPrefix[i]+(q.valid[i]?Math.max(0,p.data[i])/fs:0);validPrefix[i+1]=validPrefix[i]+q.valid[i]}for(let i=0;i+win<p.data.length;i+=step){const area=areaPrefix[i+win]-areaPrefix[i],ok=validPrefix[i+win]-validPrefix[i];if(ok>win*.7)mv.push(area*(win/ok))}
+  const eai=estimateArousalsOG(raw,fs,raw.length/fs);
+  const detr=mv.map(v=>v-median(mv));let regularity=0;for(let lag=6;lag<=18&&lag<detr.length;lag++){let dot=0,a2=0,b2=0;for(let i=lag;i<detr.length;i++){dot+=detr[i]*detr[i-lag];a2+=detr[i]*detr[i];b2+=detr[i-lag]*detr[i-lag]}if(a2>0&&b2>0)regularity=Math.max(regularity,dot/Math.sqrt(a2*b2))}
+  const N=128,hop=64,power=new Float64Array(N/2);for(let s=0;s+N<=detr.length;s+=hop){const w=detr.slice(s,s+N).map((v,i)=>v*(.5-.5*Math.cos(2*Math.PI*i/(N-1))));for(let k=1;k<N/2;k++){let re=0,im=0;for(let n=0;n<N;n++){const a=2*Math.PI*k*n/N;re+=w[n]*Math.cos(a);im-=w[n]*Math.sin(a)}power[k]+=re*re+im*im}}
+  let total=0,band=0;for(let k=1;k<power.length;k++){const f=k/(N*5);total+=power[k];if(f>=.01&&f<=.03)band+=power[k]}
+  return{regularity:clamp(regularity*100,0,100),periodicity:total?clamp(band/total*150,0,100):0,eai,artifact:clamp(q.rejected+p.removed,0,1),breaths:bs.length};
+}
+function consolidate(sessions){
+  const gap=+$("#gap").value*3600000,sorted=[...sessions].sort((a,b)=>a.date-b.date),nights=[];
+  for(const s of sorted){let n=nights.at(-1);if(!n||s.date-(n.lastDate.getTime()+n.lastDuration*60000)>gap){n={date:s.date,lastDate:s.date,lastDuration:s.duration,sessions:[]};nights.push(n)}n.sessions.push(s);n.lastDate=s.date;n.lastDuration=s.duration}
+  return nights.map(n=>{const dur=n.sessions.reduce((z,s)=>z+s.duration,0),w=k=>n.sessions.reduce((z,s)=>z+s[k]*s.duration,0)/dur,regularity=w("regularity"),periodicity=w("periodicity"),eai=w("eai");return{date:n.date,sessions:n.sessions.length,duration:dur,isNap:dur<NAP_MAX_MINUTES,filter:n.sessions[0].filter,regularity,periodicity,eai,composite:((periodicity+regularity)/2+eai)/2,artifact:w("artifact"),sourceFiles:n.sessions.map(s=>s.sourceFile).filter(Boolean),filenames:n.sessions.map(s=>s.filename)}})
+}
+function queueFiles(files){
+  const all=[...files],good=all.filter(f=>/_BRP\.edf$/i.test(f.name)),seen=new Set(state.queued.map(f=>`${f.webkitRelativePath||f.name}|${f.size}|${f.lastModified}`));
+  let added=0;for(const f of good){const key=`${f.webkitRelativePath||f.name}|${f.size}|${f.lastModified}`;if(!seen.has(key)){state.queued.push(f);seen.add(key);added++}}
+  $("#process").disabled=!state.queued.length;$("#process").textContent=state.queued.length?`Process selected (${state.queued.length})`:"Process selected";
+  $("#preprocessNote").classList.toggle("hidden",!state.queued.length);
+  status(good.length?`${state.queued.length} BRP flow file(s) queued. ${all.length-good.length} unrelated file(s) ignored. Review the settings, then use the processing button below.`:`No *_BRP.edf flow files found in that selection.`,!good.length);
+}
+function createAnalysisWorker(){
+  const source=`"use strict";
+const median=${median.toString()};
+const quantile=${quantile.toString()};
+const mad=${mad.toString()};
+const mean=${mean.toString()};
+const clamp=${clamp.toString()};
+${parseEDF.toString()}
+${preprocess.toString()}
+${windowQuality.toString()}
+${breaths.toString()}
+${estimateArousalsOG.toString()}
+${buildDynamicsTimeline.toString()}
+${buildNightOverview.toString()}
+${buildRangeDetail.toString()}
+${analyze.toString()}
+self.onmessage=async({data})=>{
+  try{
+    const parsed=parseEDF(await data.file.arrayBuffer());
+    if(data.mode==="overview"){self.postMessage({overview:{start:parsed.date,...buildNightOverview(parsed.flow,parsed.fs,data.filter,data.artifact)}});return}
+    if(data.mode==="detail"){const sessionStart=parsed.date.getTime(),sessionEnd=sessionStart+parsed.duration*60000,rangeStart=Math.max(data.rangeStart,sessionStart),rangeEnd=Math.min(data.rangeEnd,sessionEnd);if(rangeEnd<=rangeStart){self.postMessage({detail:null});return}const from=(rangeStart-sessionStart)/1000,to=(rangeEnd-sessionStart)/1000;self.postMessage({detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,data.filter,data.artifact,from,to)}});return}
+    if(parsed.duration<data.min){self.postMessage({skipped:true});return}
+    const metrics=analyze(parsed.flow,parsed.fs,data.filter,data.artifact);
+    self.postMessage({result:{fs:parsed.fs,date:parsed.date,duration:parsed.duration,...metrics,filename:data.file.name,filter:data.filter}});
+  }catch(error){self.postMessage({error:error&&error.message?error.message:String(error)})}
+};`;
+  const blobUrl=URL.createObjectURL(new Blob([source],{type:"text/javascript"})),worker=new Worker(blobUrl);worker.blobUrl=blobUrl;return worker;
+}
+function runWorker(worker,file,settings){
+  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(watchdog);resolve(value)},watchdog=setTimeout(()=>finish({error:"Preprocessing timed out after 120 seconds"}),120000);worker.onmessage=e=>finish(e.data);worker.onerror=e=>finish({error:e.message||"Background worker failed"});try{worker.postMessage({file,...settings})}catch(error){finish({error:error.message||String(error)})}});
+}
+async function processFiles(){
+  if(state.processing||!state.queued.length)return;state.processing=true;$("#process").disabled=true;$("#selectData").disabled=true;$("#progress").classList.remove("hidden");$("#progressDetail").classList.remove("hidden");
+  const good=[...state.queued],min=+$("#duration").value,filter=$("#filter").value,artifact=+$("#artifact").value;let skipped=0,failed=0,current=0,worker=null;const started=Date.now();status("Starting preprocessing engine…");$("#progressDetail").textContent=`0 of ${good.length} complete (0.0%) · 0s elapsed`;await new Promise(r=>setTimeout(r,30));
+  try{worker=createAnalysisWorker()}catch(error){console.error(error);status(`Background processing is unavailable (${error.message||error}). Using compatibility mode.`)}
+  const clock=setInterval(()=>{const elapsed=Math.round((Date.now()-started)/1000);$("#progressDetail").textContent=`${current} of ${good.length} complete (${(current/good.length*100).toFixed(1)}%) · ${elapsed}s elapsed`},1000);
+  try{
+    for(let i=0;i<good.length;i++){
+      const before=(i/good.length*100).toFixed(1);let message;
+      status(`Preprocessing ${i+1} of ${good.length}: ${good[i].name} — ${worker?"running in the background":"compatibility mode"}.`);
+      $("#progress i").style.width=`${before}%`;
+      $("#progressDetail").textContent=`${i} of ${good.length} complete (${before}%) · ${Math.round((Date.now()-started)/1000)}s elapsed`;
+      if(worker){
+        message=await runWorker(worker,good[i],{min,filter,artifact});
+      }else{
+        await new Promise(r=>setTimeout(r,30));
+        try{
+          const parsed=parseEDF(await good[i].arrayBuffer());
+          message=parsed.duration<min?{skipped:true}:{result:{fs:parsed.fs,date:parsed.date,duration:parsed.duration,...analyze(parsed.flow,parsed.fs,filter,artifact),filename:good[i].name,filter}};
+        }catch(error){message={error:error.message||String(error)}}
+      }
+      if(message.error){console.error(message.error);failed++}
+      else if(message.skipped)skipped++;
+      else state.sessions.push({...message.result,sourceFile:good[i]});
+      current=i+1;const after=(current/good.length*100).toFixed(1);
+      $("#progress i").style.width=`${after}%`;
+      $("#progressDetail").textContent=`${current} of ${good.length} complete (${after}%) · ${Math.round((Date.now()-started)/1000)}s elapsed`;
+    }
+  }catch(error){console.error(error);status(`Processing stopped: ${error.message||error}`,true)}
+  clearInterval(clock);if(worker){worker.terminate();URL.revokeObjectURL(worker.blobUrl)}
+  $("#progress i").style.width="100%";setTimeout(()=>{$("#progress").classList.add("hidden");$("#progressDetail").classList.add("hidden")},500);state.queued=[];state.processing=false;$("#selectData").disabled=false;$("#process").textContent="Process selected";$("#process").disabled=true;$("#preprocessNote").classList.add("hidden");const seconds=Math.round((Date.now()-started)/1000);status(`Finished in ${seconds}s: processed ${good.length-skipped-failed}, skipped ${skipped} short session(s), failed ${failed}.`,failed>0&&good.length===failed);render();
+}
+function status(t,error=false){const e=$("#status");e.textContent=t;e.className="status"+(error?" error":"")}
+function weighted(n,k){const d=n.reduce((z,x)=>z+x.duration,0);return d?n.reduce((z,x)=>z+x[k]*x.duration,0)/d:0}
+function monthKey(date){return`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`}
+function renderNightRows(n){
+  const groups=[];for(let i=0;i<n.length;i++){const key=monthKey(n[i].date);let group=groups.at(-1);if(!group||group.key!==key){group={key,label:n[i].date.toLocaleDateString(undefined,{month:"long",year:"numeric"}),nights:[]};groups.push(group)}group.nights.push({night:n[i],index:i})}
+  if(!state.expandedMonths.size&&groups.length)state.expandedMonths.add(groups.at(-1).key);
+  $("#rows").innerHTML=groups.map(group=>{const expanded=state.expandedMonths.has(group.key),naps=group.nights.filter(({night})=>night.isNap).length,fullNights=group.nights.length-naps,count=[fullNights?`${fullNights} night${fullNights===1?"":"s"}`:"",naps?`${naps} nap${naps===1?"":"s"}`:""].filter(Boolean).join(" · "),header=`<tr class="month-row"><th colspan="9" scope="rowgroup"><button class="month-toggle" type="button" data-month="${group.key}" aria-expanded="${expanded}"><span aria-hidden="true">${expanded?"&#9662;":"&#9656;"}</span><span>${group.label}</span><span class="month-count">${count}</span></button></th></tr>`,rows=expanded?group.nights.map(({night:x,index:i})=>`<tr data-night-index="${i}" class="${state.selectedNight===i?"is-selected":""}"><td><button class="night-link" type="button" data-night-index="${i}">${x.date.toLocaleDateString()}${x.isNap?'<span class="nap-badge">Nap</span>':""}</button></td><td>${x.sessions}</td><td>${(x.duration/60).toFixed(1)}</td><td>${x.artifact<.12?"Good":x.artifact<.25?"Fair":"Low"}</td><td>${x.filter}</td><td class="num">${x.composite.toFixed(1)}</td><td class="num">${x.regularity.toFixed(1)}</td><td class="num">${x.periodicity.toFixed(1)}</td><td class="num">${x.eai.toFixed(1)}</td></tr>`).join(""):"";return header+rows}).join("");
+}
+function render(){
+  const n=consolidate(state.sessions);if(!n.length)return;const naps=n.filter(x=>x.isNap).length,fullNights=n.length-naps;$("#results").classList.remove("hidden");$("#nightCount").textContent=n.length;$("#periodBreakdown").textContent=`${fullNights} night${fullNights===1?"":"s"} · ${naps} nap${naps===1?"":"s"}`;$("#compositeMean").textContent=weighted(n,"composite").toFixed(1);$("#artifactPct").textContent=(weighted(n,"artifact")*100).toFixed(1)+"%";$("#piMean").textContent=weighted(n,"periodicity").toFixed(1);$("#eaiMean").textContent=weighted(n,"eai").toFixed(1);
+  renderNightRows(n);draw(n);
+}
+function selectNight(index){
+  const nights=consolidate(state.sessions),night=nights[index];if(!night)return;state.rangeRequest++;state.selectedNight=index;state.nightSelection=null;state.selectionAnchor=null;state.rangeDetail=null;state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;$("#nightDetailTitle").textContent=`${night.isNap?"Nap · ":""}${night.date.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})}`;$("#nightDetailMeta").textContent=`${night.sessions} session${night.sessions===1?"":"s"} · ${(night.duration/60).toFixed(1)} hours · ${night.sourceFiles.length} retained source file${night.sourceFiles.length===1?"":"s"} · ${night.filenames.join(", ")}`;$("#nightOverviewStatus").textContent="Preparing full-night overview…";$("#nightOverviewStatus").className="status";$("#nightSelectionInfo").textContent="Drag across the overview to select a time range.";$("#clearNightSelection").classList.add("hidden");$("#nightOverviewCanvas").classList.add("hidden");$("#nightOverviewLegend").classList.add("hidden");$("#nightRangeDetail").classList.add("hidden");$("#nightDetail").classList.remove("hidden");$("#rows").querySelectorAll("tr").forEach(row=>row.classList.toggle("is-selected",Number(row.dataset.nightIndex)===index));$("#nightDetail").scrollIntoView({behavior:"smooth",block:"start"});loadNightOverview(index,night);
+}
+async function loadNightOverview(index,night){
+  const request=++state.detailRequest,sessions=[];if(!night.sourceFiles.length){$("#nightOverviewStatus").textContent="Source file reference is unavailable; reprocess the dataset in this version.";$("#nightOverviewStatus").className="status error";return}let worker=null;try{worker=createAnalysisWorker()}catch(error){console.error(error)}
+  try{
+    for(let i=0;i<night.sourceFiles.length;i++){
+      if(request!==state.detailRequest)return;$("#nightOverviewStatus").textContent=`Preparing session ${i+1} of ${night.sourceFiles.length}…`;
+      let message;if(worker)message=await runWorker(worker,night.sourceFiles[i],{mode:"overview",filter:night.filter,artifact:+$("#artifact").value});else{const parsed=parseEDF(await night.sourceFiles[i].arrayBuffer());message={overview:{start:parsed.date,...buildNightOverview(parsed.flow,parsed.fs,night.filter,+$("#artifact").value)}}}
+      if(message.error)throw Error(message.error);sessions.push({...message.overview,start:new Date(message.overview.start)});
+    }
+    if(request!==state.detailRequest)return;state.nightOverview={index,night,sessions};$("#nightOverviewCanvas").classList.remove("hidden");$("#nightOverviewLegend").classList.remove("hidden");drawNightOverview(sessions);$("#nightOverviewStatus").textContent=`Overview ready · ${sessions.reduce((sum,s)=>sum+s.dynamics.length,0).toLocaleString()} rolling HLG windows · ${sessions.reduce((sum,s)=>sum+s.eaiEvents.length,0).toLocaleString()} eAI triggers`;
+  }catch(error){if(request===state.detailRequest){console.error(error);$("#nightOverviewStatus").textContent=`Could not build overview: ${error.message||error}`;$("#nightOverviewStatus").className="status error"}}
+  finally{if(worker){worker.terminate();URL.revokeObjectURL(worker.blobUrl)}}
+}
+function drawEAIHeat(x,sessions,px,y,height,start,end){
+  const events=[];for(const session of sessions){const base=(session.start||session.sessionStart).getTime();for(const event of session.eaiEvents||[]){const time=base+event.time*1000;if(time>=start&&time<=end)events.push({time,strength:event.strength})}}if(!events.length)return;
+  x.save();const span=Math.max(1,end-start);
+  if(span<=30*60000){for(const event of events){const intensity=clamp((event.strength-1)/2,0,1);x.fillStyle=`rgba(245,138,182,${(.35+.6*intensity).toFixed(3)})`;x.fillRect(Math.round(px(event.time))-.75,y,1.5,height)}}
+  else{const bins=Math.min(240,Math.max(24,Math.ceil(span/120000))),activity=new Float64Array(bins);for(const event of events){const i=clamp(Math.floor((event.time-start)/span*bins),0,bins-1);activity[i]+=1+clamp((event.strength-1)*.2,0,1)}const ceiling=Math.max(.001,quantile(Array.from(activity),.95));for(let i=0;i<bins;i++){if(!activity[i])continue;const level=Math.sqrt(clamp(activity[i]/ceiling,0,1)),left=px(start+span*i/bins),right=px(start+span*(i+1)/bins),barHeight=Math.max(2,height*level);x.fillStyle=`rgba(245,138,182,${(.22+.68*level).toFixed(3)})`;x.fillRect(left,y+height-barHeight,Math.max(1,right-left-1),barHeight)}}
+  x.restore();
+}
+function drawDynamicsLanes(x,sessions,px,start,end,eaiSessions=sessions){
+  const top=8,bottom=30,height=bottom-top;x.fillStyle="#ffad66";x.fillText("HLG",8,bottom);x.strokeStyle="#29405f";x.lineWidth=1;x.beginPath();x.moveTo(px(start),bottom+.5);x.lineTo(px(end),bottom+.5);x.stroke();
+  for(const session of sessions){const base=(session.start||session.sessionStart).getTime(),points=(session.dynamics||[]).filter(point=>{const time=base+point.time*1000;return time>=start&&time<=end});if(!points.length)continue;const pointX=point=>px(base+point.time*1000),pointY=point=>bottom-clamp(point.hlg,0,100)/100*height;x.fillStyle="rgba(255,173,102,.12)";x.beginPath();x.moveTo(pointX(points[0]),bottom);for(const point of points)x.lineTo(pointX(point),pointY(point));x.lineTo(pointX(points.at(-1)),bottom);x.closePath();x.fill();if(points.length===1){x.fillStyle=`rgba(255,173,102,${(.25+.75*points[0].confidence).toFixed(3)})`;x.fillRect(pointX(points[0])-1,pointY(points[0])-1,2,2)}else for(let i=1;i<points.length;i++){const confidence=Math.min(points[i-1].confidence,points[i].confidence);x.strokeStyle=`rgba(255,173,102,${(.25+.75*confidence).toFixed(3)})`;x.lineWidth=1.6;x.beginPath();x.moveTo(pointX(points[i-1]),pointY(points[i-1]));x.lineTo(pointX(points[i]),pointY(points[i]));x.stroke()}}
+  x.fillStyle="#f58ab6";x.fillText("eAI",8,49);x.strokeStyle="#29405f";x.lineWidth=1;x.beginPath();x.moveTo(px(start),49.5);x.lineTo(px(end),49.5);x.stroke();drawEAIHeat(x,eaiSessions,px,40,10,start,end);
+}
+function drawNightOverview(sessions){
+  const canvas=$("#nightOverviewCanvas"),r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);const x=canvas.getContext("2d");x.scale(d,d);const W=r.width,H=r.height,p={l:54,r:18,t:62,b:34},start=Math.min(...sessions.map(s=>s.start.getTime())),end=Math.max(...sessions.map(s=>s.start.getTime()+s.duration*1000)),span=Math.max(1,end-start),values=sessions.flatMap(s=>s.points.map(point=>point.value)),top=Math.max(.0001,quantile(values,.98)*1.15),px=time=>p.l+(time-start)/span*(W-p.l-p.r),py=value=>p.t+(top-value)/top*(H-p.t-p.b);
+  x.font="11px system-ui";x.fillStyle="#9eb1ca";x.strokeStyle="#29405f";x.lineWidth=1;for(let i=0;i<=4;i++){const value=top*i/4,y=py(value);x.beginPath();x.moveTo(p.l,y);x.lineTo(W-p.r,y);x.stroke();x.fillText(value.toFixed(top<1?2:1),8,y+4)}
+  drawDynamicsLanes(x,sessions,px,start,end);
+  x.strokeStyle="#55d6d0";x.lineWidth=1.7;for(const session of sessions){x.beginPath();session.points.forEach((point,i)=>{const a=px(session.start.getTime()+point.time*1000),b=py(Math.min(point.value,top));i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke()}
+  x.strokeStyle="#9eb1ca";x.globalAlpha=.65;x.setLineDash([4,4]);for(const session of sessions){const a=px(session.start.getTime());x.beginPath();x.moveTo(a,8);x.lineTo(a,H-p.b);x.stroke()}x.setLineDash([]);x.globalAlpha=1;
+  x.fillStyle="#9eb1ca";for(let i=0;i<5;i++){const time=start+span*i/4,label=new Date(time).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}),a=p.l+(W-p.l-p.r)*i/4;x.fillText(label,clamp(a-18,p.l,W-p.r-45),H-10)}
+  if(state.nightOverview)state.nightOverview.plot={left:p.l,right:W-p.r,start,end};
+  if(state.nightSelection){const a=px(Math.min(state.nightSelection.start,state.nightSelection.end)),b=px(Math.max(state.nightSelection.start,state.nightSelection.end));x.fillStyle="rgba(97,169,255,.20)";x.fillRect(a,p.t,Math.max(2,b-a),H-p.t-p.b);x.strokeStyle="#61a9ff";x.lineWidth=2;x.beginPath();x.moveTo(a,8);x.lineTo(a,H-p.b);x.moveTo(b,8);x.lineTo(b,H-p.b);x.stroke()}
+  updateRangeNavigation();
+}
+function overviewTimeFromPointer(event){
+  const overview=state.nightOverview;if(!overview?.plot)return null;const rect=$("#nightOverviewCanvas").getBoundingClientRect(),plot=overview.plot,x=clamp(event.clientX-rect.left,plot.left,plot.right),fraction=(x-plot.left)/(plot.right-plot.left);return plot.start+fraction*(plot.end-plot.start);
+}
+function updateNightSelectionInfo(){
+  if(!state.nightSelection){$("#nightSelectionInfo").textContent="Drag across the overview to select a time range.";$("#clearNightSelection").classList.add("hidden");updateRangeNavigation();return}const start=Math.min(state.nightSelection.start,state.nightSelection.end),end=Math.max(state.nightSelection.start,state.nightSelection.end),minutes=(end-start)/60000,format=time=>new Date(time).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit",second:"2-digit"});$("#nightSelectionInfo").textContent=`Selected ${format(start)} – ${format(end)} · ${minutes<60?minutes.toFixed(1)+" minutes":(minutes/60).toFixed(2)+" hours"}`;$("#clearNightSelection").classList.remove("hidden");updateRangeNavigation();
+}
+function updateRangeNavigation(){
+  const selection=state.nightSelection,plot=state.nightOverview?.plot;if(!selection||!plot){for(const id of ["#previousRange","#nextRange","#zoomInRange","#zoomOutRange"])$(id).disabled=true;return}const start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),duration=end-start,full=plot.end-plot.start;$("#previousRange").disabled=start<=plot.start+1;$("#nextRange").disabled=end>=plot.end-1;$("#zoomInRange").disabled=duration<=5001;$("#zoomOutRange").disabled=duration>=full-1;
+}
+function applySelectedRange(start,end){
+  const plot=state.nightOverview?.plot;if(!plot)return;let duration=clamp(Math.abs(end-start),5000,plot.end-plot.start),center=(start+end)/2,nextStart=center-duration/2,nextEnd=center+duration/2;if(nextStart<plot.start){nextStart=plot.start;nextEnd=nextStart+duration}if(nextEnd>plot.end){nextEnd=plot.end;nextStart=nextEnd-duration}state.rangeRequest++;state.rangeDetail=null;state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;state.nightSelection={start:nextStart,end:nextEnd};updateNightSelectionInfo();drawNightOverview(state.nightOverview.sessions);loadSelectedRangeDetail();
+}
+function zoomSelectedRange(factor,center){
+  const selection=state.nightSelection,plot=state.nightOverview?.plot;if(!selection||!plot)return;const start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),duration=clamp((end-start)*factor,5000,plot.end-plot.start);if(Math.abs(duration-(end-start))<1)return;applySelectedRange((center??(start+end)/2)-duration/2,(center??(start+end)/2)+duration/2);
+}
+function shiftSelectedRange(direction){
+  const selection=state.nightSelection,plot=state.nightOverview?.plot;if(!selection||!plot)return;const start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),duration=end-start;let nextStart=start+direction*duration,nextEnd=end+direction*duration;if(nextStart<plot.start){nextStart=plot.start;nextEnd=Math.min(plot.end,nextStart+duration)}if(nextEnd>plot.end){nextEnd=plot.end;nextStart=Math.max(plot.start,nextEnd-duration)}if(nextStart===start&&nextEnd===end)return;applySelectedRange(nextStart,nextEnd);
+}
+async function loadSelectedRangeDetail(){
+  const overview=state.nightOverview,selection=state.nightSelection;if(!overview||!selection)return;const request=++state.rangeRequest,start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),details=[];state.rangeDetail=null;$("#nightRangeDetail").classList.remove("hidden");$("#nightRangeStatus").textContent="Preparing higher-resolution raw flow and eAI triggers…";let worker=null;try{worker=createAnalysisWorker()}catch(error){console.error(error)}
+  try{
+    for(const file of overview.night.sourceFiles){
+      if(request!==state.rangeRequest)return;let message;if(worker)message=await runWorker(worker,file,{mode:"detail",rangeStart:start,rangeEnd:end,filter:overview.night.filter,artifact:+$("#artifact").value});else{const parsed=parseEDF(await file.arrayBuffer()),sessionStart=parsed.date.getTime(),rangeStart=Math.max(start,sessionStart),rangeEnd=Math.min(end,sessionStart+parsed.duration*60000);message=rangeEnd<=rangeStart?{detail:null}:{detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,overview.night.filter,+$("#artifact").value,(rangeStart-sessionStart)/1000,(rangeEnd-sessionStart)/1000)}}}if(message.error)throw Error(message.error);if(message.detail)details.push({...message.detail,sessionStart:new Date(message.detail.sessionStart)});
+    }
+    if(request!==state.rangeRequest)return;if(!details.length)throw Error("The selected range does not intersect a retained session");state.rangeDetail={start,end,sessions:details};drawRangeDetail(state.rangeDetail);$("#nightRangeStatus").textContent=`${details.reduce((sum,s)=>sum+s.points.length,0).toLocaleString()} high-resolution raw points · ${details.reduce((sum,s)=>sum+s.eaiEvents.length,0).toLocaleString()} eAI triggers`;
+  }catch(error){if(request===state.rangeRequest){console.error(error);$("#nightRangeStatus").textContent=`Could not render selected range: ${error.message||error}`}}
+  finally{if(worker){worker.terminate();URL.revokeObjectURL(worker.blobUrl)}}
+}
+function drawRangeDetail(detail){
+  const canvas=$("#nightRangeCanvas"),r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);const x=canvas.getContext("2d");x.scale(d,d);const W=r.width,H=r.height,p={l:54,r:18,t:62,b:34},span=Math.max(1,detail.end-detail.start),all=detail.sessions.flatMap(s=>s.points.flatMap(point=>[Math.abs(point.low),Math.abs(point.high)])),top=Math.max(.0001,quantile(all,.995)*1.1),px=time=>p.l+(time-detail.start)/span*(W-p.l-p.r),py=value=>p.t+(top-value)/(2*top)*(H-p.t-p.b);
+  detail.plot={left:p.l,right:W-p.r,start:detail.start,end:detail.end};
+  x.font="11px system-ui";x.fillStyle="#9eb1ca";x.strokeStyle="#29405f";x.lineWidth=1;for(let i=0;i<=4;i++){const value=-top+2*top*i/4,y=py(value);x.beginPath();x.moveTo(p.l,y);x.lineTo(W-p.r,y);x.stroke();x.fillText(value.toFixed(top<1?2:1),8,y+4)}
+  drawDynamicsLanes(x,state.nightOverview?.sessions||[],px,detail.start,detail.end,detail.sessions);
+  x.strokeStyle="#61a9ff";x.globalAlpha=.32;x.lineWidth=1;for(const session of detail.sessions){for(const point of session.points){const a=px(session.sessionStart.getTime()+point.time*1000);x.beginPath();x.moveTo(a,py(point.low));x.lineTo(a,py(point.high));x.stroke()}}
+  x.strokeStyle="#55d6d0";x.globalAlpha=1;x.lineWidth=1.5;for(const session of detail.sessions){x.beginPath();session.points.forEach((point,i)=>{const a=px(session.sessionStart.getTime()+point.time*1000),b=py(clamp(point.mean,-top,top));i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke()}
+  if(state.rangeSelectionPreview){const a=px(Math.min(state.rangeSelectionPreview.start,state.rangeSelectionPreview.end)),b=px(Math.max(state.rangeSelectionPreview.start,state.rangeSelectionPreview.end));x.fillStyle="rgba(97,169,255,.20)";x.fillRect(a,p.t,Math.max(2,b-a),H-p.t-p.b);x.strokeStyle="#61a9ff";x.lineWidth=2;x.beginPath();x.moveTo(a,p.t);x.lineTo(a,H-p.b);x.moveTo(b,p.t);x.lineTo(b,H-p.b);x.stroke()}
+  const showSeconds=span<=10*60000;x.fillStyle="#9eb1ca";for(let i=0;i<5;i++){const time=detail.start+span*i/4,label=new Date(time).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit",second:showSeconds?"2-digit":undefined}),a=p.l+(W-p.l-p.r)*i/4;x.fillText(label,clamp(a-23,p.l,W-p.r-50),H-10)}
+}
+function rangeTimeFromPointer(event){
+  const detail=state.rangeDetail;if(!detail?.plot)return null;const rect=$("#nightRangeCanvas").getBoundingClientRect(),plot=detail.plot,x=clamp(event.clientX-rect.left,plot.left,plot.right),fraction=(x-plot.left)/(plot.right-plot.left);return plot.start+fraction*(plot.end-plot.start);
+}
+function addRolling7(n){
+  const keys=["composite","regularity","periodicity","eai"],sums=Object.fromEntries(keys.map(k=>[k,0])),out=[];let start=0;
+  for(let i=0;i<n.length;i++){for(const k of keys)sums[k]+=n[i][k];const cutoff=n[i].date.getTime()-6*86400000;while(start<i&&n[start].date.getTime()<cutoff){for(const k of keys)sums[k]-=n[start][k];start++}const count=i-start+1;out.push({...n[i],...Object.fromEntries(keys.map(k=>[`${k}7`,sums[k]/count]))})}
+  return out;
+}
+function chartRange(values,bounded=true){
+  let lo=Math.min(...values),hi=Math.max(...values);if(lo===hi){lo-=5;hi+=5}const pad=Math.max(2,(hi-lo)*.1);lo=Math.floor((lo-pad)*10)/10;hi=Math.ceil((hi+pad)*10)/10;if(bounded){lo=Math.max(0,lo);hi=Math.min(100,hi)}else lo=Math.max(0,lo);if(hi-lo<10){const mid=(hi+lo)/2;lo=Math.max(0,mid-5);hi=bounded?Math.min(100,mid+5):mid+5}return{lo,hi};
+}
+function drawChart(selector,n,key,color,bounded=true){
+  const c=$(selector),r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=Math.max(1,r.width*d);c.height=Math.max(1,r.height*d);const x=c.getContext("2d");x.scale(d,d);const W=r.width,H=r.height,p={l:52,r:18,t:16,b:34},values=n.flatMap(z=>[z[key],z[`${key}7`]]).filter(Number.isFinite),range=chartRange(values,bounded),span=range.hi-range.lo||1,t0=n[0].date.getTime(),t1=n.at(-1).date.getTime(),timeSpan=t1-t0||1,px=z=>p.l+(z.date.getTime()-t0)/timeSpan*(W-p.l-p.r),py=v=>p.t+(range.hi-v)/span*(H-p.t-p.b);
+  x.font="11px system-ui";x.fillStyle="#9eb1ca";x.strokeStyle="#29405f";x.lineWidth=1;for(let i=0;i<=4;i++){const v=range.lo+span*i/4,y=py(v);x.beginPath();x.moveTo(p.l,y);x.lineTo(W-p.r,y);x.stroke();x.fillText((span<12?v.toFixed(1):v.toFixed(0)),7,y+4)}
+  x.globalAlpha=.3;x.strokeStyle=color;x.lineWidth=1;x.beginPath();n.forEach((z,i)=>{const a=px(z),b=py(z[key]);i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke();if(n.length<=160){x.fillStyle=color;n.forEach(z=>{x.beginPath();x.arc(px(z),py(z[key]),1.6,0,Math.PI*2);x.fill()})}
+  x.globalAlpha=1;x.strokeStyle="#55d6d0";x.lineWidth=2.5;x.beginPath();n.forEach((z,i)=>{const a=px(z),b=py(z[`${key}7`]);i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke();
+  const ticks=Math.min(5,n.length);x.fillStyle="#9eb1ca";for(let i=0;i<ticks;i++){const idx=Math.round(i*(n.length-1)/Math.max(1,ticks-1)),z=n[idx],label=z.date.toLocaleDateString(undefined,{month:"short",year:"2-digit"}),a=px(z);x.fillText(label,clamp(a-18,p.l,W-p.r-38),H-10)}
+}
+function draw(n){
+  const data=addRolling7(n);drawChart("#chartComposite",data,"composite","#f58ab6",false);drawChart("#chartRegularity",data,"regularity","#69d39b");drawChart("#chartPeriodicity",data,"periodicity","#61a9ff");drawChart("#chartEai",data,"eai","#aa8cff",false);
+}
+function csv(){const n=addRolling7(consolidate(state.sessions)),head="Date,Type,Sessions,Hours,Quality,Filter,Sleep Disruption,7-day Sleep Disruption,Regularity,7-day Regularity,Periodicity,7-day Periodicity,EAI,7-day EAI,Artifact Percent",rows=n.map(x=>[x.date.toISOString().slice(0,10),x.isNap?"Nap":"Night",x.sessions,(x.duration/60).toFixed(2),x.artifact<.12?"Good":x.artifact<.25?"Fair":"Low",x.filter,x.composite.toFixed(2),x.composite7.toFixed(2),x.regularity.toFixed(2),x.regularity7.toFixed(2),x.periodicity.toFixed(2),x.periodicity7.toFixed(2),x.eai.toFixed(2),x.eai7.toFixed(2),(x.artifact*100).toFixed(2)].join(",")),a=document.createElement("a");a.href=URL.createObjectURL(new Blob([[head,...rows].join("\n")],{type:"text/csv"}));a.download="wobble-analysis.csv";a.click();URL.revokeObjectURL(a.href)}
+$("#selectData").onclick=e=>{e.stopPropagation();$("#selectMenu").classList.toggle("hidden")};$("#selectFolder").onclick=()=>{$("#selectMenu").classList.add("hidden");$("#folder").click()};$("#selectFiles").onclick=()=>{$("#selectMenu").classList.add("hidden");$("#files").click()};document.addEventListener("click",()=>$("#selectMenu").classList.add("hidden"));
+const overviewCanvas=$("#nightOverviewCanvas");overviewCanvas.onpointerdown=e=>{if(!state.nightOverview||e.button>0)return;const time=overviewTimeFromPointer(e);if(time===null)return;e.preventDefault();state.rangeRequest++;state.rangeDetail=null;$("#nightRangeDetail").classList.add("hidden");overviewCanvas.setPointerCapture(e.pointerId);state.selectionAnchor=time;state.nightSelection={start:time,end:time};updateNightSelectionInfo();drawNightOverview(state.nightOverview.sessions)};overviewCanvas.onpointermove=e=>{if(state.selectionAnchor===null||!state.nightOverview)return;const time=overviewTimeFromPointer(e);if(time===null)return;state.nightSelection={start:state.selectionAnchor,end:time};updateNightSelectionInfo();drawNightOverview(state.nightOverview.sessions)};overviewCanvas.onpointerup=e=>{if(state.selectionAnchor===null||!state.nightOverview)return;const time=overviewTimeFromPointer(e);if(time!==null)state.nightSelection={start:state.selectionAnchor,end:time};const plot=state.nightOverview.plot;if(Math.abs(state.nightSelection.end-state.nightSelection.start)<30000){const mid=(state.nightSelection.start+state.nightSelection.end)/2;state.nightSelection={start:Math.max(plot.start,mid-15000),end:Math.min(plot.end,mid+15000)}}state.selectionAnchor=null;updateNightSelectionInfo();drawNightOverview(state.nightOverview.sessions);if(overviewCanvas.hasPointerCapture(e.pointerId))overviewCanvas.releasePointerCapture(e.pointerId);loadSelectedRangeDetail()};overviewCanvas.onpointercancel=e=>{state.selectionAnchor=null;if(overviewCanvas.hasPointerCapture(e.pointerId))overviewCanvas.releasePointerCapture(e.pointerId)};
+const rangeCanvas=$("#nightRangeCanvas");rangeCanvas.onpointerdown=e=>{if(!state.rangeDetail||e.button>0)return;const time=rangeTimeFromPointer(e);if(time===null)return;e.preventDefault();rangeCanvas.setPointerCapture(e.pointerId);state.rangeSelectionAnchor=time;state.rangeSelectionPreview={start:time,end:time};drawRangeDetail(state.rangeDetail)};rangeCanvas.onpointermove=e=>{if(state.rangeSelectionAnchor===null||!state.rangeDetail)return;const time=rangeTimeFromPointer(e);if(time===null)return;state.rangeSelectionPreview={start:state.rangeSelectionAnchor,end:time};drawRangeDetail(state.rangeDetail)};rangeCanvas.onpointerup=e=>{if(state.rangeSelectionAnchor===null||!state.rangeDetail)return;const detail=state.rangeDetail,time=rangeTimeFromPointer(e)??state.rangeSelectionAnchor,anchor=state.rangeSelectionAnchor,span=detail.end-detail.start,dragged=Math.abs(time-anchor);state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;if(rangeCanvas.hasPointerCapture(e.pointerId))rangeCanvas.releasePointerCapture(e.pointerId);drawRangeDetail(detail);if(dragged<Math.max(1000,span*.01))zoomSelectedRange(.5,time);else applySelectedRange(anchor,time)};rangeCanvas.onpointercancel=e=>{state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;if(rangeCanvas.hasPointerCapture(e.pointerId))rangeCanvas.releasePointerCapture(e.pointerId);if(state.rangeDetail)drawRangeDetail(state.rangeDetail)};
+$("#files").onchange=e=>queueFiles(e.target.files);$("#folder").onchange=e=>queueFiles(e.target.files);$("#process").onclick=async()=>{try{await processFiles()}catch(error){console.error(error);state.processing=false;$("#selectData").disabled=false;$("#process").disabled=!state.queued.length;$("#progress").classList.add("hidden");$("#progressDetail").classList.add("hidden");status(`Could not start processing: ${error.message||error}`,true)}};$("#download").onclick=csv;$("#rows").onclick=e=>{const toggle=e.target.closest(".month-toggle");if(toggle){const key=toggle.dataset.month;state.expandedMonths.has(key)?state.expandedMonths.delete(key):state.expandedMonths.add(key);renderNightRows(consolidate(state.sessions));return}const button=e.target.closest(".night-link");if(button)selectNight(Number(button.dataset.nightIndex))};$("#previousRange").onclick=()=>shiftSelectedRange(-1);$("#zoomInRange").onclick=()=>zoomSelectedRange(.5);$("#zoomOutRange").onclick=()=>zoomSelectedRange(2);$("#nextRange").onclick=()=>shiftSelectedRange(1);$("#clearNightSelection").onclick=()=>{state.rangeRequest++;state.nightSelection=null;state.selectionAnchor=null;state.rangeDetail=null;state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;$("#nightRangeDetail").classList.add("hidden");updateNightSelectionInfo();if(state.nightOverview)drawNightOverview(state.nightOverview.sessions)};$("#closeNight").onclick=()=>{state.detailRequest++;state.rangeRequest++;state.selectedNight=null;state.nightOverview=null;state.nightSelection=null;state.selectionAnchor=null;state.rangeDetail=null;state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;$("#nightDetail").classList.add("hidden");$("#rows").querySelectorAll("tr").forEach(row=>row.classList.remove("is-selected"))};$("#reset").onclick=()=>{state.detailRequest++;state.rangeRequest++;state.sessions=[];state.queued=[];state.selectedNight=null;state.nightOverview=null;state.nightSelection=null;state.selectionAnchor=null;state.rangeDetail=null;state.rangeSelectionAnchor=null;state.rangeSelectionPreview=null;state.expandedMonths.clear();$("#results").classList.add("hidden");$("#nightDetail").classList.add("hidden");$("#files").value="";$("#folder").value="";$("#process").disabled=true;$("#process").textContent="Process selected";$("#preprocessNote").classList.add("hidden");status("Ready.")};addEventListener("resize",()=>{if(state.sessions.length)draw(consolidate(state.sessions));if(state.nightOverview)drawNightOverview(state.nightOverview.sessions);if(state.rangeDetail)drawRangeDetail(state.rangeDetail)});
+const drop=$("#drop");for(const ev of ["dragenter","dragover"])drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag")});for(const ev of ["dragleave","drop"])drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag")});drop.addEventListener("drop",e=>queueFiles(e.dataTransfer.files));
+</script>
+</body>
 </html>
