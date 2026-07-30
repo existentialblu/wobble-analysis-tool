@@ -8,7 +8,7 @@
   <style>
     :root{color-scheme:dark;--bg:#08111f;--panel:#101d31;--panel2:#14243b;--line:#29405f;--text:#edf5ff;--muted:#9eb1ca;--blue:#61a9ff;--cyan:#55d6d0;--orange:#ffad66;--pink:#f58ab6;--good:#69d39b;--bad:#ff7c86}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#123360 0,#08111f 42%);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}
-    main{width:min(1180px,calc(100% - 32px));margin:auto;padding:44px 0 70px}header{text-align:center;margin-bottom:26px}h1{margin:0;font-size:clamp(30px,5vw,48px);letter-spacing:-.04em}header p{margin:7px 0;color:#bed0e8}.privacy{color:var(--cyan)}
+    main{width:min(1180px,calc(100% - 32px));margin:auto;padding:44px 0 70px}header{text-align:center;margin-bottom:26px}h1{margin:0;font-size:clamp(30px,5vw,48px);letter-spacing:-.04em}header p{margin:7px 0;color:#bed0e8}.privacy{color:var(--cyan)}.legacy-link{display:inline-block;margin-top:8px;color:var(--blue);text-underline-offset:3px}.legacy-link:hover{color:var(--cyan)}
     .notice,.card{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px #0004}.notice{padding:14px 18px;margin-bottom:16px;color:#f5d6a6}.card{padding:22px;margin-top:16px}
     .upload{border:1px dashed #4773a7;border-radius:13px;padding:26px;text-align:center;background:#0b1729}.upload.drag{border-color:var(--cyan);background:#102b3d}.upload strong{display:block;font-size:18px}.upload p,.hint{color:var(--muted)}button,.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:9px;padding:11px 16px;background:#2677d8;color:white;font-weight:700;cursor:pointer}button:hover,.button:hover{filter:brightness(1.12)}button.secondary{background:#263a55}.button input{display:none}
     .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}.controls label{color:var(--muted);font-size:12px}.controls input,.controls select{width:100%;margin-top:5px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#0b1728;color:var(--text)}
@@ -28,6 +28,7 @@
     <h1>Wobble Analysis Tool <span style="color:var(--cyan)">v0.5</span></h1>
     <p>Dynamic ventilatory-control trend analysis</p>
     <div class="privacy">🔒 Files stay on this device. Nothing is uploaded.</div>
+    <a class="legacy-link" href="./v0.22/">Prefer the previous workflow? Open legacy v0.22</a>
   </header>
   <div class="notice"><b>Experimental—not medical advice.</b> Results are estimates from PAP flow data, not a diagnosis or a substitute for polysomnography or clinical care.</div>
 
