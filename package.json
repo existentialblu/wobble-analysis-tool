@@ -1,6 +1,7 @@
 {
   "name": "wobble-analysis-tool",
   "version": "0.22.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
