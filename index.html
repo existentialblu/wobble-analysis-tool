@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#08111f">
   <title>Wobble Analysis Tool</title>
   <style>
-    :root{color-scheme:dark;--bg:#08111f;--panel:#101d31;--panel2:#14243b;--line:#29405f;--text:#edf5ff;--muted:#9eb1ca;--blue:#61a9ff;--cyan:#55d6d0;--orange:#ffad66;--pink:#f58ab6;--good:#69d39b;--bad:#ff7c86}
+    :root{color-scheme:dark;--bg:#08111f;--panel:#101d31;--panel2:#14243b;--line:#29405f;--text:#edf5ff;--muted:#9eb1ca;--blue:#61a9ff;--cyan:#55d6d0;--violet:#aa8cff;--orange:#ffad66;--pink:#f58ab6;--good:#69d39b;--bad:#ff7c86}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#123360 0,#08111f 42%);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}
     main{width:min(1180px,calc(100% - 32px));margin:auto;padding:44px 0 70px}header{text-align:center;margin-bottom:26px}h1{margin:0;font-size:clamp(30px,5vw,48px);letter-spacing:-.04em}header p{margin:7px 0;color:#bed0e8}.privacy{color:var(--cyan)}.legacy-link{display:inline-block;margin-top:8px;color:var(--blue);text-underline-offset:3px}.legacy-link:hover{color:var(--cyan)}
     .notice,.card{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px #0004}.notice{padding:14px 18px;margin-bottom:16px;color:#f5d6a6}.card{padding:22px;margin-top:16px}
@@ -103,10 +103,10 @@
       <div class="toolbar" style="margin:8px 0 0"><div id="nightSelectionInfo" class="hint">Drag across the overview to select a time range.</div><button id="clearNightSelection" class="secondary hidden" type="button">Clear selection</button></div>
       <div id="nightRangeDetail" class="chart-panel hidden">
         <div class="toolbar"><h3>Selected range detail</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="previousRange" class="secondary" type="button" disabled>&larr; Previous</button><button id="zoomInRange" class="secondary" type="button" disabled>Zoom in</button><button id="zoomOutRange" class="secondary" type="button" disabled>Zoom out</button><button id="nextRange" class="secondary" type="button" disabled>Next &rarr;</button></div></div>
-        <p id="nightRangeStatus">Preparing higher-resolution raw flow…</p>
-        <canvas id="nightRangeCanvas" role="img" aria-label="Higher-resolution raw flow rate with a rolling high-loop-gain proxy and exact eAI trigger ticks"></canvas>
+        <p id="nightRangeStatus">Preparing higher-resolution raw flow and minute ventilation…</p>
+        <canvas id="nightRangeCanvas" role="img" aria-label="Higher-resolution raw flow rate with rolling 60-second minute ventilation, a high-loop-gain proxy, and exact eAI trigger ticks"></canvas>
         <div class="hint">Drag across this plot to zoom into that interval. Click once to halve the window around that time.</div>
-        <div class="legend"><span style="color:var(--cyan)"><i class="line-key"></i>Raw flow rate</span><span style="color:var(--blue)"><i class="line-key raw"></i>Per-pixel raw range</span><span style="color:var(--orange)"><i class="line-key"></i>High loop gain (HLG) proxy</span><span style="color:var(--pink)"><i class="line-key"></i>eAI trigger</span></div>
+        <div class="legend"><span style="color:var(--cyan)"><i class="line-key"></i>Raw flow rate</span><span style="color:var(--blue)"><i class="line-key raw"></i>Per-pixel raw range</span><span style="color:var(--violet)"><i class="line-key"></i>Minute ventilation (rolling 60 seconds)</span><span style="color:var(--orange)"><i class="line-key"></i>High loop gain (HLG) proxy</span><span style="color:var(--pink)"><i class="line-key"></i>eAI trigger</span></div>
       </div>
     </section>
     <section class="card">
@@ -145,7 +145,7 @@ function parseEDF(buffer){
   const scale=(sig.pmax-sig.pmin)/(sig.dmax-sig.dmin);if(!Number.isFinite(scale)||fs<1||fs>1000)throw Error("Unsupported flow calibration or sampling rate.");
   for(let r=0;r<records;r++){const base=h.bytes+r*recordBytes+prefix,dest=r*sig.samples;for(let i=0;i<sig.samples;i++)flow[dest+i]=(v.getInt16(base+i*2,true)-sig.dmin)*scale+sig.pmin}
   const [dd,mm,yy]=h.date.split(".").map(Number),year=yy<85?2000+yy:1900+yy,[hh,mi,ss]=h.time.split(".").map(Number);
-  return{flow,fs,date:new Date(year,mm-1,dd,hh||0,mi||0,ss||0),duration:flow.length/fs/60};
+  return{flow,fs,flowUnit:sig.unit,date:new Date(year,mm-1,dd,hh||0,mi||0,ss||0),duration:flow.length/fs/60};
 }
 function preprocess(raw,fs,mode){
   const out=new Float64Array(raw.length),stride=Math.max(1,Math.round(fs/5)),sample=[],diffs=[];
@@ -208,10 +208,19 @@ function buildNightOverview(raw,fs,filterMode,artifactLimit,targetPoints=1400){
   for(let start=0;start<p.data.length;start+=bin){const end=Math.min(p.data.length,start+bin);let envelope=0;for(let i=start;i<end;i++)envelope+=Math.abs(p.data[i]);points.push({time:(start+end)/(2*fs),value:envelope/(end-start)})}
   return{points,duration:p.data.length/fs,eaiEvents:og.events,dynamics:buildDynamicsTimeline(p.data,fs,quality.valid)};
 }
-function buildRangeDetail(raw,fs,filterMode,artifactLimit,fromSeconds,toSeconds,targetPoints=3000){
+function buildMinuteVentilation(raw,fs,filterMode,fromSeconds,toSeconds,flowUnit=""){
+  const halfWindow=Math.round(30*fs),first=clamp(Math.floor(fromSeconds*fs),0,raw.length),last=clamp(Math.ceil(toSeconds*fs),first,raw.length),paddedFirst=Math.max(0,first-halfWindow),paddedLast=Math.min(raw.length,last+halfWindow),segment=raw.subarray(paddedFirst,paddedLast),prefix=new Float64Array(segment.length+1),unitScale=/\/\s*min/i.test(flowUnit)?1/60:1,stride=Math.max(1,Math.round(fs/5)),sample=[],diffs=[];
+  for(let i=0;i<segment.length;i+=stride){const value=Number.isFinite(segment[i])?segment[i]:0;sample.push(value);if(i>=stride)diffs.push(value-(Number.isFinite(segment[i-stride])?segment[i-stride]:0))}
+  const globalMed=median(sample),signalScale=1.4826*mad(sample),diffScale=1.4826*mad(diffs),cfg={light:10,balanced:7,strong:5}[filterMode]??Infinity,spikeLimit=Math.max(diffScale*cfg,signalScale*.35),driftA=1-Math.exp(-1/(fs*45));let baseline=globalMed,previous=globalMed;
+  for(let i=0;i<segment.length;i++){let value=Number.isFinite(segment[i])?segment[i]:previous;if(Math.abs(value-previous)>spikeLimit)value=previous;baseline+=driftA*(value-baseline);prefix[i+1]=prefix[i]+Math.max(0,value-baseline)/fs*unitScale;previous=value}
+  const points=[],step=Math.max(1,Math.round(fs));
+  for(let center=first;center<last;center+=step){const local=center-paddedFirst,lo=Math.max(0,local-halfWindow),hi=Math.min(segment.length,local+halfWindow),seconds=(hi-lo)/fs;if(seconds>0)points.push({time:center/fs,value:(prefix[hi]-prefix[lo])*60/seconds})}
+  return points;
+}
+function buildRangeDetail(raw,fs,filterMode,artifactLimit,fromSeconds,toSeconds,flowUnit="",targetPoints=3000){
   const first=clamp(Math.floor(fromSeconds*fs),0,raw.length),last=clamp(Math.ceil(toSeconds*fs),first,raw.length),bin=Math.max(1,Math.ceil((last-first)/targetPoints)),points=[],og=estimateArousalsOG(raw,fs,raw.length/fs,true);
   for(let start=first;start<last;start+=bin){const end=Math.min(last,start+bin);let low=Infinity,high=-Infinity,sum=0;for(let i=start;i<end;i++){const value=Number.isFinite(raw[i])?raw[i]:0;low=Math.min(low,value);high=Math.max(high,value);sum+=value}points.push({time:(start+end)/(2*fs),low,high,mean:sum/(end-start)})}
-  return{points,from:first/fs,to:last/fs,eaiEvents:og.events.filter(event=>event.time>=first/fs&&event.time<=last/fs)};
+  return{points,minuteVentilation:buildMinuteVentilation(raw,fs,filterMode,fromSeconds,toSeconds,flowUnit),from:first/fs,to:last/fs,eaiEvents:og.events.filter(event=>event.time>=first/fs&&event.time<=last/fs)};
 }
 function analyze(raw,fs,filterMode,artifactLimit){
   const p=preprocess(raw,fs,filterMode),q=windowQuality(p.data,fs,artifactLimit),bs=breaths(p.data,fs,q.valid);
@@ -248,13 +257,14 @@ ${breaths.toString()}
 ${estimateArousalsOG.toString()}
 ${buildDynamicsTimeline.toString()}
 ${buildNightOverview.toString()}
+${buildMinuteVentilation.toString()}
 ${buildRangeDetail.toString()}
 ${analyze.toString()}
 self.onmessage=async({data})=>{
   try{
     const parsed=parseEDF(await data.file.arrayBuffer());
     if(data.mode==="overview"){self.postMessage({overview:{start:parsed.date,...buildNightOverview(parsed.flow,parsed.fs,data.filter,data.artifact)}});return}
-    if(data.mode==="detail"){const sessionStart=parsed.date.getTime(),sessionEnd=sessionStart+parsed.duration*60000,rangeStart=Math.max(data.rangeStart,sessionStart),rangeEnd=Math.min(data.rangeEnd,sessionEnd);if(rangeEnd<=rangeStart){self.postMessage({detail:null});return}const from=(rangeStart-sessionStart)/1000,to=(rangeEnd-sessionStart)/1000;self.postMessage({detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,data.filter,data.artifact,from,to)}});return}
+    if(data.mode==="detail"){const sessionStart=parsed.date.getTime(),sessionEnd=sessionStart+parsed.duration*60000,rangeStart=Math.max(data.rangeStart,sessionStart),rangeEnd=Math.min(data.rangeEnd,sessionEnd);if(rangeEnd<=rangeStart){self.postMessage({detail:null});return}const from=(rangeStart-sessionStart)/1000,to=(rangeEnd-sessionStart)/1000;self.postMessage({detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,data.filter,data.artifact,from,to,parsed.flowUnit)}});return}
     if(parsed.duration<data.min){self.postMessage({skipped:true});return}
     const metrics=analyze(parsed.flow,parsed.fs,data.filter,data.artifact);
     self.postMessage({result:{fs:parsed.fs,date:parsed.date,duration:parsed.duration,...metrics,filename:data.file.name,filter:data.filter}});
@@ -365,22 +375,23 @@ function shiftSelectedRange(direction){
   const selection=state.nightSelection,plot=state.nightOverview?.plot;if(!selection||!plot)return;const start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),duration=end-start;let nextStart=start+direction*duration,nextEnd=end+direction*duration;if(nextStart<plot.start){nextStart=plot.start;nextEnd=Math.min(plot.end,nextStart+duration)}if(nextEnd>plot.end){nextEnd=plot.end;nextStart=Math.max(plot.start,nextEnd-duration)}if(nextStart===start&&nextEnd===end)return;applySelectedRange(nextStart,nextEnd);
 }
 async function loadSelectedRangeDetail(){
-  const overview=state.nightOverview,selection=state.nightSelection;if(!overview||!selection)return;const request=++state.rangeRequest,start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),details=[];state.rangeDetail=null;$("#nightRangeDetail").classList.remove("hidden");$("#nightRangeStatus").textContent="Preparing higher-resolution raw flow and eAI triggers…";let worker=null;try{worker=createAnalysisWorker()}catch(error){console.error(error)}
+  const overview=state.nightOverview,selection=state.nightSelection;if(!overview||!selection)return;const request=++state.rangeRequest,start=Math.min(selection.start,selection.end),end=Math.max(selection.start,selection.end),details=[];state.rangeDetail=null;$("#nightRangeDetail").classList.remove("hidden");$("#nightRangeStatus").textContent="Preparing higher-resolution raw flow, minute ventilation, and eAI triggers…";let worker=null;try{worker=createAnalysisWorker()}catch(error){console.error(error)}
   try{
     for(const file of overview.night.sourceFiles){
-      if(request!==state.rangeRequest)return;let message;if(worker)message=await runWorker(worker,file,{mode:"detail",rangeStart:start,rangeEnd:end,filter:overview.night.filter,artifact:+$("#artifact").value});else{const parsed=parseEDF(await file.arrayBuffer()),sessionStart=parsed.date.getTime(),rangeStart=Math.max(start,sessionStart),rangeEnd=Math.min(end,sessionStart+parsed.duration*60000);message=rangeEnd<=rangeStart?{detail:null}:{detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,overview.night.filter,+$("#artifact").value,(rangeStart-sessionStart)/1000,(rangeEnd-sessionStart)/1000)}}}if(message.error)throw Error(message.error);if(message.detail)details.push({...message.detail,sessionStart:new Date(message.detail.sessionStart)});
+      if(request!==state.rangeRequest)return;let message;if(worker)message=await runWorker(worker,file,{mode:"detail",rangeStart:start,rangeEnd:end,filter:overview.night.filter,artifact:+$("#artifact").value});else{const parsed=parseEDF(await file.arrayBuffer()),sessionStart=parsed.date.getTime(),rangeStart=Math.max(start,sessionStart),rangeEnd=Math.min(end,sessionStart+parsed.duration*60000);message=rangeEnd<=rangeStart?{detail:null}:{detail:{sessionStart:parsed.date,...buildRangeDetail(parsed.flow,parsed.fs,overview.night.filter,+$("#artifact").value,(rangeStart-sessionStart)/1000,(rangeEnd-sessionStart)/1000,parsed.flowUnit)}}}if(message.error)throw Error(message.error);if(message.detail)details.push({...message.detail,sessionStart:new Date(message.detail.sessionStart)});
     }
-    if(request!==state.rangeRequest)return;if(!details.length)throw Error("The selected range does not intersect a retained session");state.rangeDetail={start,end,sessions:details};drawRangeDetail(state.rangeDetail);$("#nightRangeStatus").textContent=`${details.reduce((sum,s)=>sum+s.points.length,0).toLocaleString()} high-resolution raw points · ${details.reduce((sum,s)=>sum+s.eaiEvents.length,0).toLocaleString()} eAI triggers`;
+    if(request!==state.rangeRequest)return;if(!details.length)throw Error("The selected range does not intersect a retained session");state.rangeDetail={start,end,sessions:details};drawRangeDetail(state.rangeDetail);$("#nightRangeStatus").textContent=`${details.reduce((sum,s)=>sum+s.points.length,0).toLocaleString()} high-resolution raw points · ${details.reduce((sum,s)=>sum+s.minuteVentilation.length,0).toLocaleString()} minute-vent points · ${details.reduce((sum,s)=>sum+s.eaiEvents.length,0).toLocaleString()} eAI triggers`;
   }catch(error){if(request===state.rangeRequest){console.error(error);$("#nightRangeStatus").textContent=`Could not render selected range: ${error.message||error}`}}
   finally{if(worker){worker.terminate();URL.revokeObjectURL(worker.blobUrl)}}
 }
 function drawRangeDetail(detail){
-  const canvas=$("#nightRangeCanvas"),r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);const x=canvas.getContext("2d");x.scale(d,d);const W=r.width,H=r.height,p={l:54,r:18,t:62,b:34},span=Math.max(1,detail.end-detail.start),all=detail.sessions.flatMap(s=>s.points.flatMap(point=>[Math.abs(point.low),Math.abs(point.high)])),top=Math.max(.0001,quantile(all,.995)*1.1),px=time=>p.l+(time-detail.start)/span*(W-p.l-p.r),py=value=>p.t+(top-value)/(2*top)*(H-p.t-p.b);
+  const canvas=$("#nightRangeCanvas"),r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);const x=canvas.getContext("2d");x.scale(d,d);const W=r.width,H=r.height,p={l:54,r:58,t:62,b:34},span=Math.max(1,detail.end-detail.start),all=detail.sessions.flatMap(s=>s.points.flatMap(point=>[Math.abs(point.low),Math.abs(point.high)])),top=Math.max(.0001,quantile(all,.995)*1.1),px=time=>p.l+(time-detail.start)/span*(W-p.l-p.r),py=value=>p.t+(top-value)/(2*top)*(H-p.t-p.b),mvValues=detail.sessions.flatMap(s=>(s.minuteVentilation||[]).map(point=>point.value)).filter(Number.isFinite),mvLow=0,mvHigh=mvValues.length?Math.max(.1,quantile(mvValues,.98)*1.15):1,mvy=value=>p.t+(mvHigh-clamp(value,mvLow,mvHigh))/mvHigh*(H-p.t-p.b);
   detail.plot={left:p.l,right:W-p.r,start:detail.start,end:detail.end};
   x.font="11px system-ui";x.fillStyle="#9eb1ca";x.strokeStyle="#29405f";x.lineWidth=1;for(let i=0;i<=4;i++){const value=-top+2*top*i/4,y=py(value);x.beginPath();x.moveTo(p.l,y);x.lineTo(W-p.r,y);x.stroke();x.fillText(value.toFixed(top<1?2:1),8,y+4)}
   drawDynamicsLanes(x,state.nightOverview?.sessions||[],px,detail.start,detail.end,detail.sessions);
   x.strokeStyle="#61a9ff";x.globalAlpha=.32;x.lineWidth=1;for(const session of detail.sessions){for(const point of session.points){const a=px(session.sessionStart.getTime()+point.time*1000);x.beginPath();x.moveTo(a,py(point.low));x.lineTo(a,py(point.high));x.stroke()}}
   x.strokeStyle="#55d6d0";x.globalAlpha=1;x.lineWidth=1.5;for(const session of detail.sessions){x.beginPath();session.points.forEach((point,i)=>{const a=px(session.sessionStart.getTime()+point.time*1000),b=py(clamp(point.mean,-top,top));i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke()}
+  if(mvValues.length){x.save();x.lineJoin="round";x.lineCap="round";for(const [color,width] of [["#08111f",5],["#aa8cff",2.3]]){x.strokeStyle=color;x.lineWidth=width;for(const session of detail.sessions){const points=session.minuteVentilation||[];if(!points.length)continue;x.beginPath();points.forEach((point,i)=>{const a=px(session.sessionStart.getTime()+point.time*1000),b=mvy(point.value);i?x.lineTo(a,b):x.moveTo(a,b)});x.stroke()}}x.font="11px system-ui";x.fillStyle="#aa8cff";x.textAlign="right";for(let i=0;i<=2;i++){const value=mvLow+(mvHigh-mvLow)*i/2,y=mvy(value);x.fillText(value.toFixed(mvHigh-mvLow<2?1:0),W-6,y+4)}x.fillText("MV L/min",W-6,p.t-10);x.restore()}
   if(state.rangeSelectionPreview){const a=px(Math.min(state.rangeSelectionPreview.start,state.rangeSelectionPreview.end)),b=px(Math.max(state.rangeSelectionPreview.start,state.rangeSelectionPreview.end));x.fillStyle="rgba(97,169,255,.20)";x.fillRect(a,p.t,Math.max(2,b-a),H-p.t-p.b);x.strokeStyle="#61a9ff";x.lineWidth=2;x.beginPath();x.moveTo(a,p.t);x.lineTo(a,H-p.b);x.moveTo(b,p.t);x.lineTo(b,H-p.b);x.stroke()}
   const showSeconds=span<=10*60000;x.fillStyle="#9eb1ca";for(let i=0;i<5;i++){const time=detail.start+span*i/4,label=new Date(time).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit",second:showSeconds?"2-digit":undefined}),a=p.l+(W-p.l-p.r)*i/4;x.fillText(label,clamp(a-23,p.l,W-p.r-50),H-10)}
 }
