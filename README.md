@@ -51,7 +51,8 @@ label and does not change scoring. Dragging across the overview creates a visibl
 clock times and duration; this selection triggers an on-demand higher-resolution
 calibrated raw-flow view. The detail renderer uses per-bin minimum, maximum, and
 mean values so breath shape survives downsampling without retaining the full raw
-waveform. A separately scaled, rolling 60-second minute-ventilation trace is
+waveform. A separately scaled, lightly smoothed rolling 60-second
+minute-ventilation trace is
 laid over the breath-level view so slower waxing and waning remains visible
 without flattening individual breath shapes. The HLG proxy is the geometric mean of localized regularity and
 periodicity, so both organized 30–90-second oscillation and spectral
