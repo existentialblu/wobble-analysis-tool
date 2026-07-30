@@ -6,6 +6,13 @@ A dependency-free, local-only browser tool for exploratory analysis of ResMed
 Current version: **v0.5 pre-release**. The filtering and derived metrics remain
 experimental and should be validated against representative real-world data.
 
+## Legacy version
+
+The previous v0.22 interface remains available at [`/v0.22/`](./v0.22/).
+It is preserved as a static archive for people who prefer its established
+workflow or need to compare results with earlier analyses. New development is
+focused on v0.5.
+
 ## Run
 
 Open `index.html` in a modern Chromium-based browser. Click **Select data** and
