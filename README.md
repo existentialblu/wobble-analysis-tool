@@ -92,3 +92,7 @@ insufficient usable variation from the newer filtered metrics. It does not
 alter the raw-flow detail view or the original eAI path.
 
 The application is experimental and is not a medical device.
+
+## License
+
+[MIT](LICENSE) © 2026 existentialblu.
