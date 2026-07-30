@@ -68,8 +68,9 @@ load the adjacent detail automatically.
 
 Results use separate, dynamically scaled charts for Sleep Disruption,
 regularity, periodicity, and estimated arousals. Each chart shows nightly values
-plus a trailing seven-calendar-day average. Sleep Disruption is a
-dynamic-analysis composite:
+plus a trailing seven-calendar-day average. Hover over any chart to see the
+nearest sleep period's date, duration, nightly value, and trailing average.
+Sleep Disruption is a dynamic-analysis composite:
 
 `(((periodicity + regularity) / 2) + EAI) / 2`
 
