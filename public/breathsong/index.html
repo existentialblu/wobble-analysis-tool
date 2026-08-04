@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BreathSong — PAP Data Sonification</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0a0a0f;
+    color: #c8c8d0;
+    font-family: 'Consolas', 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+h1 { color: #e0e0e8; font-size: 1.6em; margin-bottom: 4px; }
+.subtitle { color: #666; font-size: 0.85em; margin-bottom: 20px; }
+
+/* Drop zone */
+#dropZone {
+    width: 100%;
+    max-width: 900px;
+    border: 2px dashed #333;
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 16px;
+}
+#dropZone.dragover { border-color: #4a9eff; background: rgba(74,158,255,0.05); }
+#dropZone.loaded { border-color: #44ddaa; border-style: solid; padding: 16px; }
+#dropZone .hint { color: #555; font-size: 0.85em; margin-top: 8px; }
+#dropZone .files { color: #44ddaa; font-size: 0.9em; }
+
+/* Session info */
+#sessionInfo {
+    width: 100%;
+    max-width: 900px;
+    background: #111118;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.85em;
+    display: none;
+}
+#sessionInfo span { margin-right: 24px; }
+#sessionInfo .label { color: #666; }
+#sessionInfo .value { color: #aaa; }
+
+/* Transport */
+#transport {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+button {
+    background: #1a1a24;
+    color: #c8c8d0;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px 18px;
+    font-family: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+button:hover:not(:disabled) { background: #252530; border-color: #4a9eff; }
+button:disabled { opacity: 0.3; cursor: default; }
+button.active { background: #1a2a3a; border-color: #4a9eff; color: #4a9eff; }
+#timeDisplay {
+    font-size: 1.1em;
+    color: #888;
+    margin-left: auto;
+    min-width: 160px;
+    text-align: right;
+}
+
+/* Timeline */
+#timelineWrap {
+    width: 100%;
+    max-width: 900px;
+    height: 24px;
+    background: #111118;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+#timelineProgress {
+    height: 100%;
+    background: linear-gradient(90deg, #4a9eff22, #4a9eff44);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+#timelineCursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: #4a9eff;
+}
+
+/* Mixer */
+#mixer {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.mixerStrip {
+    background: #111118;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.mixerStrip .chLabel {
+    font-size: 0.8em;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+.mixerStrip input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #222;
+    border-radius: 3px;
+    outline: none;
+}
+.mixerStrip input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+.mixerStrip .volLabel { font-size: 0.7em; color: #555; }
+.panWrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+.panTag { font-size: 0.6em; color: #444; }
+.panSlider {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 4px;
+    background: #222;
+    border-radius: 2px;
+    outline: none;
+}
+.panSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #555;
+    cursor: pointer;
+}
+.muteBtn {
+    font-size: 0.75em;
+    padding: 4px 12px;
+    border-radius: 3px;
+}
+.muteBtn.muted { background: #331111; border-color: #663333; color: #ff6b4a; }
+.mixerStrip.disabled { opacity: 0.25; pointer-events: none; }
+
+/* Per-channel slider thumb colors */
+.ch-flow input[type="range"]::-webkit-slider-thumb { background: #4a9eff; }
+.ch-pressure input[type="range"]::-webkit-slider-thumb { background: #ff6b4a; }
+.ch-leak input[type="range"]::-webkit-slider-thumb { background: #ffaa33; }
+.ch-mv input[type="range"]::-webkit-slider-thumb { background: #44ddaa; }
+.ch-ipap input[type="range"]::-webkit-slider-thumb { background: #b44aff; }
+
+/* Canvas */
+#vizCanvas {
+    width: 100%;
+    max-width: 900px;
+    height: 280px;
+    background: #0d0d14;
+    border-radius: 6px;
+    border: 1px solid #1a1a24;
+    margin-bottom: 16px;
+}
+
+/* Status / export bar */
+#bottomBar {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+#statusMsg { flex: 1; font-size: 0.85em; color: #555; }
+#statusMsg.error { color: #ff6b4a; }
+#statusMsg.ok { color: #44ddaa; }
+</style>
+</head>
+<body>
+
+<h1>BreathSong</h1>
+<div class="subtitle">PAP data sonification — drag EDF or Philips .005/.006 files to hear your night</div>
+
+<div id="dropZone">
+    Drop PAP data files here<br>
+    ResMed: BRP.edf + PLD.edf &nbsp;|&nbsp; Philips: .005/.006 files
+    <div class="hint">or click to browse</div>
+    <div class="hint" style="margin-top:6px;font-size:0.75em;color:#444">Full 5-channel sonification (leak, IPAP, MV) requires ResMed 25Hz EDF data.<br>Philips waveform files yield flow + pressure only — blame their data format, not us.</div>
+    <input type="file" id="fileInput" multiple accept=".edf,.005,.006" style="display:none">
+</div>
+
+<div id="sessionInfo">
+    <span><span class="label">Date: </span><span class="value" id="infoDate">—</span></span>
+    <span><span class="label">Duration: </span><span class="value" id="infoDuration">—</span></span>
+    <span><span class="label">Compression: </span><span class="value" id="infoRatio">—</span></span>
+    <span><span class="label">Channels: </span><span class="value" id="infoChannels">—</span></span>
+    <br><span><span class="label">Signals: </span><span class="value" id="infoSignals" style="font-size:0.85em;color:#555">—</span></span>
+</div>
+
+<div id="transport">
+    <button id="btnPlay" disabled>Play</button>
+    <button id="btnPause" disabled>Pause</button>
+    <button id="btnStop" disabled>Stop</button>
+    <div id="timeDisplay">00:00.0 / 00:00.0</div>
+</div>
+
+<div id="timelineWrap">
+    <div id="timelineProgress"></div>
+    <div id="timelineCursor"></div>
+</div>
+
+<div id="mixer">
+    <div class="mixerStrip ch-flow" id="stripFlow">
+        <div class="chLabel" style="color:#4a9eff">FLOW</div>
+        <input type="range" min="0" max="100" value="80" id="volFlow">
+        <div class="volLabel" id="volFlowLabel">80%</div>
+        <div class="panWrap"><span class="panTag">L</span><input type="range" min="-100" max="100" value="0" id="panFlow" class="panSlider"><span class="panTag">R</span></div>
+        <div class="volLabel" id="panFlowLabel">C</div>
+        <button class="muteBtn" id="muteFlow">Mute</button>
+    </div>
+    <div class="mixerStrip ch-pressure" id="stripPressure">
+        <div class="chLabel" style="color:#ff6b4a">PRESSURE</div>
+        <input type="range" min="0" max="100" value="60" id="volPressure">
+        <div class="volLabel" id="volPressureLabel">60%</div>
+        <div class="panWrap"><span class="panTag">L</span><input type="range" min="-100" max="100" value="0" id="panPressure" class="panSlider"><span class="panTag">R</span></div>
+        <div class="volLabel" id="panPressureLabel">C</div>
+        <button class="muteBtn" id="mutePressure">Mute</button>
+    </div>
+    <div class="mixerStrip ch-leak disabled" id="stripLeak">
+        <div class="chLabel" style="color:#ffaa33">LEAK</div>
+        <input type="range" min="0" max="100" value="40" id="volLeak">
+        <div class="volLabel" id="volLeakLabel">40%</div>
+        <div class="panWrap"><span class="panTag">L</span><input type="range" min="-100" max="100" value="0" id="panLeak" class="panSlider"><span class="panTag">R</span></div>
+        <div class="volLabel" id="panLeakLabel">C</div>
+        <button class="muteBtn" id="muteLeak">Mute</button>
+    </div>
+    <div class="mixerStrip ch-ipap disabled" id="stripIpap">
+        <div class="chLabel" style="color:#b44aff">IPAP</div>
+        <input type="range" min="0" max="100" value="65" id="volIpap">
+        <div class="volLabel" id="volIpapLabel">65%</div>
+        <div class="panWrap"><span class="panTag">L</span><input type="range" min="-100" max="100" value="0" id="panIpap" class="panSlider"><span class="panTag">R</span></div>
+        <div class="volLabel" id="panIpapLabel">C</div>
+        <button class="muteBtn" id="muteIpap">Mute</button>
+    </div>
+    <div class="mixerStrip ch-mv disabled" id="stripMv">
+        <div class="chLabel" style="color:#44ddaa">MIN VENT</div>
+        <input type="range" min="0" max="100" value="70" id="volMv">
+        <div class="volLabel" id="volMvLabel">70%</div>
+        <div class="panWrap"><span class="panTag">L</span><input type="range" min="-100" max="100" value="0" id="panMv" class="panSlider"><span class="panTag">R</span></div>
+        <div class="volLabel" id="panMvLabel">C</div>
+        <button class="muteBtn" id="muteMv">Mute</button>
+    </div>
+</div>
+
+<canvas id="vizCanvas" width="900" height="280"></canvas>
+
+<div id="bottomBar">
+    <div id="statusMsg">Ready — drop ResMed EDF or Philips .005/.006 files to begin</div>
+    <button id="btnExport" disabled>Export WAV</button>
+</div>
+
+<script>
+// ============================================================
+// BreathSong — PAP Data Sonification Tool
+// ============================================================
+
+const AUDIO_SR = 11025;       // Output sample rate
+const MAX_DURATION = 300;     // Max 5 minutes of audio
+const CHANNEL_COLORS = {
+    flow: '#4a9eff',
+    pressure: '#ff6b4a',
+    leak: '#ffaa33',
+    ipap: '#b44aff',
+    mv: '#44ddaa'
+};
+
+// ---- EDF Parser (from sonification.js, proven working) ----
+
+function readString(dataView, offset, length) {
+    let str = '';
+    for (let i = 0; i < length; i++) {
+        const char = dataView.getUint8(offset + i);
+        if (char === 0) break;
+        str += String.fromCharCode(char);
+    }
+    return str.trim();
+}
+
+function parseEDFHeader(dataView) {
+    let offset = 0;
+    const version = readString(dataView, offset, 8); offset += 8;
+    const patientID = readString(dataView, offset, 80); offset += 80;
+    const recordingID = readString(dataView, offset, 80); offset += 80;
+    const startDate = readString(dataView, offset, 8); offset += 8;
+    const startTime = readString(dataView, offset, 8); offset += 8;
+    const headerBytes = parseInt(readString(dataView, offset, 8)); offset += 8;
+    const reserved = readString(dataView, offset, 44); offset += 44;
+    const numRecords = parseInt(readString(dataView, offset, 8)); offset += 8;
+    const recordDuration = parseFloat(readString(dataView, offset, 8)); offset += 8;
+    const numSignals = parseInt(readString(dataView, offset, 4)); offset += 4;
+
+    const signalLabels = [];
+    for (let i = 0; i < numSignals; i++) {
+        signalLabels.push(readString(dataView, offset, 16).trim());
+        offset += 16;
+    }
+    // Skip transducer types
+    offset += numSignals * 80;
+    // Skip physical dimensions
+    offset += numSignals * 8;
+
+    const physicalMin = [], physicalMax = [];
+    for (let i = 0; i < numSignals; i++) { physicalMin.push(parseFloat(readString(dataView, offset, 8))); offset += 8; }
+    for (let i = 0; i < numSignals; i++) { physicalMax.push(parseFloat(readString(dataView, offset, 8))); offset += 8; }
+
+    const digitalMin = [], digitalMax = [];
+    for (let i = 0; i < numSignals; i++) { digitalMin.push(parseInt(readString(dataView, offset, 8))); offset += 8; }
+    for (let i = 0; i < numSignals; i++) { digitalMax.push(parseInt(readString(dataView, offset, 8))); offset += 8; }
+
+    // Skip prefiltering
+    offset += numSignals * 80;
+
+    const samplesPerRecord = [];
+    for (let i = 0; i < numSignals; i++) { samplesPerRecord.push(parseInt(readString(dataView, offset, 8))); offset += 8; }
+
+    // Skip reserved
+    offset += numSignals * 32;
+
+    return {
+        numSignals, numRecords, recordDuration,
+        signalLabels, physicalMin, physicalMax,
+        digitalMin, digitalMax, samplesPerRecord,
+        signalSampleRates: samplesPerRecord.map(s => s / recordDuration),
+        headerBytes, startDate, startTime, patientID, recordingID
+    };
+}
+
+function extractSignal(dataView, header, signalIndex) {
+    const totalSamples = header.numRecords * header.samplesPerRecord[signalIndex];
+    const signal = new Float32Array(totalSamples);
+    let sampleIndex = 0;
+    let dataOffset = header.headerBytes;
+
+    const physRange = header.physicalMax[signalIndex] - header.physicalMin[signalIndex];
+    const digRange = header.digitalMax[signalIndex] - header.digitalMin[signalIndex];
+    const scale = physRange / digRange;
+    const offset = header.physicalMin[signalIndex] - header.digitalMin[signalIndex] * scale;
+
+    for (let record = 0; record < header.numRecords; record++) {
+        let recordOffset = dataOffset;
+        for (let i = 0; i < signalIndex; i++) {
+            recordOffset += header.samplesPerRecord[i] * 2;
+        }
+        for (let i = 0; i < header.samplesPerRecord[signalIndex]; i++) {
+            const digitalValue = dataView.getInt16(recordOffset, true);
+            signal[sampleIndex++] = digitalValue * scale + offset;
+            recordOffset += 2;
+        }
+        for (let i = 0; i < header.numSignals; i++) {
+            dataOffset += header.samplesPerRecord[i] * 2;
+        }
+    }
+    return signal;
+}
+
+// ---- Resampling (from sonification.js) ----
+
+function resampleData(data, fromRate, toRate) {
+    const ratio = toRate / fromRate;
+    const newLength = Math.floor(data.length * ratio);
+    const resampled = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+        const origIdx = i / ratio;
+        const i1 = Math.floor(origIdx);
+        const i2 = Math.min(i1 + 1, data.length - 1);
+        const frac = origIdx - i1;
+        resampled[i] = data[i1] * (1 - frac) + data[i2] * frac;
+    }
+    return resampled;
+}
+
+// ---- MV from flow (from sonification.js) ----
+
+function calculateMinuteVentilation(flowData, sampleRate) {
+    const windowSize = Math.floor(sampleRate * 60);
+    const minVent = new Float32Array(flowData.length);
+    let windowSum = 0;
+
+    for (let i = 0; i < Math.min(windowSize, flowData.length); i++) {
+        if (flowData[i] > 0) windowSum += flowData[i];
+    }
+    minVent[0] = windowSum / sampleRate;
+
+    for (let i = 1; i < flowData.length; i++) {
+        if (flowData[i] > 0) windowSum += flowData[i];
+        const oldIdx = i - windowSize;
+        if (oldIdx >= 0 && flowData[oldIdx] > 0) windowSum -= flowData[oldIdx];
+        minVent[i] = windowSum / sampleRate;
+    }
+    return minVent;
+}
+
+// ---- Signal name matching ----
+
+function normalizeLabel(label) {
+    // Strip ResMed suffixes like .40ms, .2s, etc.
+    return label.replace(/\.\d+m?s$/i, '').trim().toUpperCase();
+}
+
+function findSignalIndex(header, ...patterns) {
+    const skip = ['CRC16', 'TRIGCYCEVT'];
+    for (const pat of patterns) {
+        const idx = header.signalLabels.findIndex(lbl => {
+            const norm = normalizeLabel(lbl);
+            if (skip.some(s => norm.includes(s))) return false;
+            return norm.includes(pat.toUpperCase());
+        });
+        if (idx !== -1) return idx;
+    }
+    return -1;
+}
+
+function findSignalIndexExact(header, ...patterns) {
+    // Exact normalized match — needed to distinguish Press.2s from MaskPress.2s/EprPress.2s
+    const skip = ['CRC16', 'TRIGCYCEVT'];
+    for (const pat of patterns) {
+        const idx = header.signalLabels.findIndex(lbl => {
+            const norm = normalizeLabel(lbl);
+            if (skip.some(s => norm.includes(s))) return false;
+            return norm === pat.toUpperCase();
+        });
+        if (idx !== -1) return idx;
+    }
+    return -1;
+}
+
+// ---- Signal Processing ----
+
+function flowEnvelope(flowData, sampleRate) {
+    // |flow| then 2-second running average
+    const absFlow = new Float32Array(flowData.length);
+    for (let i = 0; i < flowData.length; i++) absFlow[i] = Math.abs(flowData[i]);
+
+    const winSamples = Math.floor(sampleRate * 2);
+    const env = new Float32Array(flowData.length);
+    let sum = 0;
+    for (let i = 0; i < flowData.length; i++) {
+        sum += absFlow[i];
+        if (i >= winSamples) sum -= absFlow[i - winSamples];
+        env[i] = sum / Math.min(i + 1, winSamples);
+    }
+    return env;
+}
+
+function normalize01(data) {
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < data.length; i++) {
+        if (data[i] < min) min = data[i];
+        if (data[i] > max) max = data[i];
+    }
+    const range = max - min || 1;
+    const out = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i++) out[i] = (data[i] - min) / range;
+    return out;
+}
+
+// ---- Audio Rendering ----
+
+function renderFlowChannel(envelope, sr) {
+    // Sine 220Hz, amplitude = flow envelope
+    const buf = new Float32Array(envelope.length);
+    const freq = 220;
+    for (let i = 0; i < envelope.length; i++) {
+        const t = i / sr;
+        buf[i] = Math.sin(2 * Math.PI * freq * t) * envelope[i] * 0.7;
+    }
+    return buf;
+}
+
+function renderPressureChannel(pressNorm, sr) {
+    // Triangle wave, frequency mapped 70-210Hz from pressure level
+    // Phase-continuous (from sonifytheAPAP.py pattern)
+    const buf = new Float32Array(pressNorm.length);
+    let phase = 0;
+    for (let i = 0; i < pressNorm.length; i++) {
+        const freq = 70 + pressNorm[i] * 140; // 70-210Hz
+        const phaseInc = freq / sr;
+        // Triangle wave from phase
+        const tri = 2 * Math.abs(2 * (phase - Math.floor(phase + 0.5))) - 1;
+        buf[i] = tri * 0.5;
+        phase += phaseInc;
+        if (phase > 1e6) phase -= 1e6; // keep bounded
+    }
+    return buf;
+}
+
+function renderLeakChannel(leakNorm, sr) {
+    // Pink noise amplitude-modulated by leak level
+    // Pink noise approximation: filtered white noise (Voss-McCartney)
+    const buf = new Float32Array(leakNorm.length);
+    // Simple pink noise: sum of several octave-band random walks
+    const nOctaves = 8;
+    const octVals = new Float32Array(nOctaves);
+    let whiteVal = 0;
+    for (let i = 0; i < leakNorm.length; i++) {
+        // Update octave bands based on bit pattern
+        for (let o = 0; o < nOctaves; o++) {
+            if ((i & ((1 << o) - 1)) === 0) {
+                octVals[o] = (Math.random() * 2 - 1);
+            }
+        }
+        whiteVal = Math.random() * 2 - 1;
+        let pink = whiteVal;
+        for (let o = 0; o < nOctaves; o++) pink += octVals[o];
+        pink /= (nOctaves + 1);
+        buf[i] = pink * leakNorm[i] * 0.6;
+    }
+    return buf;
+}
+
+function renderIPAPChannel(ipapNorm, sr) {
+    // Sine 350-700Hz — same range as MV but π out of phase
+    // When IPAP and MV track together (same normalized value) → same freq → cancellation
+    // When they diverge (servo hunting) → different freq → audible beating
+    const buf = new Float32Array(ipapNorm.length);
+    let phase = Math.PI; // start π out of phase with MV
+    for (let i = 0; i < ipapNorm.length; i++) {
+        const freq = 350 + ipapNorm[i] * 350; // 350-700Hz, same as MV
+        const phaseInc = (2 * Math.PI * freq) / sr;
+        buf[i] = Math.sin(phase) * 0.6;
+        phase = (phase + phaseInc) % (2 * Math.PI);
+    }
+    return buf;
+}
+
+function renderMVChannel(mvNorm, sr) {
+    // Sine, frequency mapped 350-700Hz from MV level
+    // Phase-continuous
+    const buf = new Float32Array(mvNorm.length);
+    let phase = 0;
+    for (let i = 0; i < mvNorm.length; i++) {
+        const freq = 350 + mvNorm[i] * 350; // 350-700Hz
+        const phaseInc = (2 * Math.PI * freq) / sr;
+        buf[i] = Math.sin(phase) * 0.6;
+        phase = (phase + phaseInc) % (2 * Math.PI);
+    }
+    return buf;
+}
+
+// ---- Philips DreamStation Parser (from OscilloBreath philips_loader.py) ----
+
+// DS2 encryption constants (from OSCAR prs1_loader.cpp)
+const OSCAR_KEY_STR = "Patient access to their own data"; // 32 bytes ASCII
+const COMMON_KEY = new Uint8Array([
+    0x75, 0xB3, 0xA2, 0x12, 0x4A, 0x65, 0xAF, 0x97,
+    0x54, 0xD8, 0xC1, 0xF3, 0xE5, 0x2E, 0xB6, 0xF0,
+    0x23, 0x20, 0x57, 0x69, 0x7E, 0x38, 0x0E, 0xC9,
+    0x4A, 0xDC, 0x46, 0x45, 0xB6, 0x92, 0x5A, 0x98
+]);
+const DS2_HEADER_SIZE = 202;
+
+function isPhilipsEncrypted(data) {
+    return data.byteLength >= 6 &&
+        data[0] === 0x0d && data[1] === 0x01 && data[2] === 0x01;
+}
+
+async function decryptDS2(rawData) {
+    // Decrypt DreamStation 2 file using Web Crypto API
+    // Based on OSCAR's PRDS2File::decrypt()
+    if (rawData.byteLength < DS2_HEADER_SIZE) {
+        throw new Error('File too small for DS2 format');
+    }
+
+    const raw = new Uint8Array(rawData);
+    const iv = raw.slice(42, 54);              // 12 bytes for GCM
+    const salt = raw.slice(54, 70);            // 16 bytes for PBKDF2
+    const exportKeyEnc = raw.slice(120, 152);  // 32 bytes
+    const exportKeyTag = raw.slice(152, 168);  // 16 bytes GCM tag
+    const payloadTag = raw.slice(168, 184);    // 16 bytes GCM tag
+    const encryptedPayload = raw.slice(184);
+
+    // Step 1: Decrypt COMMON_KEY with OSCAR_KEY using AES-256-ECB
+    // Web Crypto doesn't support ECB, so decrypt each 16-byte block via CBC with zero IV
+    const oscarKeyBytes = new TextEncoder().encode(OSCAR_KEY_STR);
+    const ecbKey = await crypto.subtle.importKey('raw', oscarKeyBytes, 'AES-CBC', false, ['decrypt']);
+    const zeroIV = new Uint8Array(16);
+    // Decrypt block 1 (bytes 0-15)
+    const block1 = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: zeroIV }, ecbKey,
+        padPKCS7(COMMON_KEY.slice(0, 16)));
+    // Decrypt block 2 (bytes 16-31)
+    const block2 = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: zeroIV }, ecbKey,
+        padPKCS7(COMMON_KEY.slice(16, 32)));
+    const decryptedCommon = new Uint8Array(32);
+    decryptedCommon.set(new Uint8Array(block1).slice(0, 16), 0);
+    decryptedCommon.set(new Uint8Array(block2).slice(0, 16), 16);
+
+    // Step 2: Derive salted key using PBKDF2-SHA256
+    const pbkdfKey = await crypto.subtle.importKey('raw', decryptedCommon, 'PBKDF2', false, ['deriveBits']);
+    const saltedKeyBits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: salt, iterations: 10000, hash: 'SHA-256' },
+        pbkdfKey, 256
+    );
+
+    // Step 3: Decrypt export key using AES-256-GCM
+    const gcmKey1 = await crypto.subtle.importKey('raw', saltedKeyBits, 'AES-GCM', false, ['decrypt']);
+    const exportKeyCiphertext = new Uint8Array(exportKeyEnc.length + exportKeyTag.length);
+    exportKeyCiphertext.set(exportKeyEnc);
+    exportKeyCiphertext.set(exportKeyTag, exportKeyEnc.length);
+    const exportKey = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, gcmKey1, exportKeyCiphertext);
+
+    // Step 4: Decrypt payload using AES-256-GCM
+    const gcmKey2 = await crypto.subtle.importKey('raw', exportKey, 'AES-GCM', false, ['decrypt']);
+    const isZeroTag = payloadTag.every(b => b === 0);
+    let payloadCiphertext;
+    if (isZeroTag) {
+        // Truncated file — try without tag (OSCAR does this too)
+        payloadCiphertext = encryptedPayload;
+    } else {
+        payloadCiphertext = new Uint8Array(encryptedPayload.length + payloadTag.length);
+        payloadCiphertext.set(encryptedPayload);
+        payloadCiphertext.set(payloadTag, encryptedPayload.length);
+    }
+    const decryptedPayload = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, gcmKey2, payloadCiphertext);
+
+    console.log(`DS2 decrypted: ${decryptedPayload.byteLength} bytes`);
+    return new Uint8Array(decryptedPayload);
+}
+
+function padPKCS7(block) {
+    // Pad a single 16-byte block to 32 bytes for AES-CBC (which expects at least one padding block)
+    const padded = new Uint8Array(32);
+    padded.set(block);
+    // PKCS7 padding: fill remaining bytes with pad length (16)
+    for (let i = 16; i < 32; i++) padded[i] = 16;
+    return padded;
+}
+
+function parsePhilipsWaveform(data) {
+    // Block-based waveform parsing from OscilloBreath philips_loader.py
+    let pos = 0;
+    const flowSamples = [];
+    const pressureSamples = [];
+
+    // Try block-based parsing first
+    while (pos < data.length - 4) {
+        if (pos + 3 > data.length) break;
+        const code = data[pos];
+        const size = data[pos + 1] | (data[pos + 2] << 8); // little-endian uint16
+        pos += 3;
+
+        if (pos + size > data.length) break;
+
+        if (size > 4) {
+            const interleave = data[pos] | (data[pos + 1] << 8);
+            if (interleave >= 1 && interleave <= 16 && size > interleave * 2) {
+                const waveStart = pos + 2;
+                const numSamples = Math.floor((size - 2) / (interleave * 2));
+
+                for (let i = 0; i < numSamples; i++) {
+                    const baseIdx = waveStart + i * interleave * 2;
+                    // Flow: first 'interleave' bytes
+                    for (let k = 0; k < interleave && baseIdx + k < data.length; k++) {
+                        flowSamples.push(data[baseIdx + k]);
+                    }
+                    // Pressure: next 'interleave' bytes
+                    for (let k = 0; k < interleave && baseIdx + interleave + k < data.length; k++) {
+                        pressureSamples.push(data[baseIdx + interleave + k]);
+                    }
+                }
+            }
+        }
+        pos += size;
+    }
+
+    // Fallback: alternating byte pairs
+    if (flowSamples.length === 0) {
+        console.log('No structured blocks found, using raw alternating bytes');
+        for (let i = 0; i < data.length - 1; i += 2) {
+            flowSamples.push(data[i]);
+            pressureSamples.push(data[i + 1]);
+        }
+    }
+
+    return {
+        flow: new Float32Array(flowSamples),
+        pressure: new Float32Array(pressureSamples.map(v => v * 0.1)), // Scale to cmH2O
+        sampleRate: 1.0 // Default estimate — matches OscilloBreath
+    };
+}
+
+async function loadPhilipsFiles(files) {
+    setStatus('Parsing Philips files...', '');
+
+    // Sort files by name for consistent ordering
+    const sorted = files.slice().sort((a, b) => a.name.localeCompare(b.name));
+
+    const allFlow = [];
+    const allPressure = [];
+    let sampleRate = 1.0;
+
+    for (const file of sorted) {
+        try {
+            setStatus(`Reading ${file.name}...`, '');
+            const buf = await readFileAsArrayBuffer(file);
+            let data = new Uint8Array(buf);
+
+            // Check for DS2 encryption
+            if (isPhilipsEncrypted(data)) {
+                setStatus(`Decrypting ${file.name}...`, '');
+                data = await decryptDS2(buf);
+            }
+
+            const result = parsePhilipsWaveform(data);
+            allFlow.push(result.flow);
+            allPressure.push(result.pressure);
+            sampleRate = result.sampleRate;
+            console.log(`${file.name}: ${result.flow.length} flow samples`);
+        } catch (err) {
+            console.warn(`Error loading ${file.name}:`, err);
+        }
+    }
+
+    if (allFlow.length === 0) {
+        setStatus('Could not parse any Philips waveform data.', 'error');
+        return;
+    }
+
+    // Concatenate all files
+    const totalFlowLen = allFlow.reduce((s, a) => s + a.length, 0);
+    const flowRaw = new Float32Array(totalFlowLen);
+    let offset = 0;
+    for (const chunk of allFlow) { flowRaw.set(chunk, offset); offset += chunk.length; }
+
+    const totalPressLen = allPressure.reduce((s, a) => s + a.length, 0);
+    const pressRaw = new Float32Array(totalPressLen);
+    offset = 0;
+    for (const chunk of allPressure) { pressRaw.set(chunk, offset); offset += chunk.length; }
+
+    const sessionSecs = flowRaw.length / sampleRate;
+
+    // Derive MV from flow (no PLD equivalent for Philips)
+    setStatus('Deriving minute ventilation from flow...', '');
+    const mvRaw = calculateMinuteVentilation(flowRaw, sampleRate);
+
+    // Now render — same pipeline as ResMed
+    const compressionRatio = Math.max(1, sessionSecs / MAX_DURATION);
+    const audioDuration = Math.min(sessionSecs, MAX_DURATION);
+    const audioSamples = Math.floor(audioDuration * AUDIO_SR);
+
+    state.sessionDuration = sessionSecs;
+    state.audioDuration = audioDuration;
+    state.compressionRatio = compressionRatio;
+
+    setStatus('Rendering audio channels...', '');
+    await new Promise(r => setTimeout(r, 50));
+
+    // Flow
+    const flowEnv = flowEnvelope(flowRaw, sampleRate);
+    const flowCompressed = resampleData(flowEnv, sampleRate * compressionRatio, AUDIO_SR);
+    state.rawEnvelopes.flow = normalize01(flowCompressed.subarray(0, audioSamples));
+    state.hasChannel.flow = true;
+
+    // Pressure
+    if (pressRaw.length > 0) {
+        const pressCompressed = resampleData(pressRaw, sampleRate * compressionRatio, AUDIO_SR);
+        state.rawEnvelopes.pressure = normalize01(pressCompressed.subarray(0, audioSamples));
+        state.hasChannel.pressure = true;
+    }
+
+    // MV (derived)
+    const mvCompressed = resampleData(mvRaw, sampleRate * compressionRatio, AUDIO_SR);
+    state.rawEnvelopes.mv = normalize01(mvCompressed.subarray(0, audioSamples));
+    state.hasChannel.mv = true;
+
+    // No leak or IPAP from Philips waveform files
+
+    // Render audio buffers
+    initAudio();
+    if (state.hasChannel.flow) state.buffers.flow = renderToBuffer(renderFlowChannel(state.rawEnvelopes.flow, AUDIO_SR));
+    if (state.hasChannel.pressure) state.buffers.pressure = renderToBuffer(renderPressureChannel(state.rawEnvelopes.pressure, AUDIO_SR));
+    if (state.hasChannel.mv) state.buffers.mv = renderToBuffer(renderMVChannel(state.rawEnvelopes.mv, AUDIO_SR));
+
+    // Update UI
+    const fileNames = sorted.map(f => f.name);
+    const pseudoHeader = {
+        startDate: '(Philips)',
+        startTime: fileNames[0].replace(/\D/g, '').slice(0, 14) || '—'
+    };
+    const allLabels = ['Philips: ' + fileNames.join(', ')];
+    updateSessionInfo(pseudoHeader, sessionSecs, compressionRatio, allLabels);
+    updateMixerState();
+    drawVisualization();
+
+    document.getElementById('btnPlay').disabled = false;
+    document.getElementById('btnExport').disabled = false;
+
+    const chCount = Object.values(state.hasChannel).filter(Boolean).length;
+    setStatus(`Ready — ${chCount} channels from Philips data (${audioDuration.toFixed(1)}s audio from ${formatTime(sessionSecs)} session)`, 'ok');
+}
+
+// ---- Application State ----
+
+const state = {
+    audioCtx: null,
+    buffers: { flow: null, pressure: null, leak: null, ipap: null, mv: null },
+    sources: { flow: null, pressure: null, leak: null, ipap: null, mv: null },
+    gains: { flow: null, pressure: null, leak: null, ipap: null, mv: null },
+    panners: { flow: null, pressure: null, leak: null, ipap: null, mv: null },
+    rawEnvelopes: { flow: null, pressure: null, leak: null, ipap: null, mv: null },
+    playing: false,
+    paused: false,
+    startedAt: 0,
+    pausedAt: 0,
+    audioDuration: 0,
+    sessionDuration: 0,
+    compressionRatio: 1,
+    animFrame: null,
+    channels: ['flow', 'pressure', 'leak', 'ipap', 'mv'],
+    muted: { flow: false, pressure: false, leak: false, ipap: false, mv: false },
+    hasChannel: { flow: false, pressure: false, leak: false, ipap: false, mv: false }
+};
+
+// ---- File Loading ----
+
+async function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Failed to read ' + file.name));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function loadFiles(files) {
+    setStatus('Parsing ResMed EDF files...', '');
+    let brpFile = null, pldFile = null;
+
+    for (const f of files) {
+        const name = f.name.toUpperCase();
+        if (name.includes('BRP') && name.endsWith('.EDF')) brpFile = f;
+        else if (name.includes('PLD') && name.endsWith('.EDF')) pldFile = f;
+        else if (name.endsWith('.EDF')) {
+            // Try to identify by size or content — BRP is typically larger
+            if (!brpFile) brpFile = f;
+            else if (!pldFile) pldFile = f;
+        }
+    }
+
+    if (!brpFile) {
+        setStatus('No BRP.edf found. Need at least a BRP file.', 'error');
+        return;
+    }
+
+    try {
+        // Parse BRP
+        const brpBuf = await readFileAsArrayBuffer(brpFile);
+        const brpView = new DataView(brpBuf);
+        const brpHeader = parseEDFHeader(brpView);
+        console.log('BRP signals:', brpHeader.signalLabels);
+
+        const flowIdx = findSignalIndex(brpHeader, 'FLOW');
+        const pressIdx = findSignalIndex(brpHeader, 'PRESS', 'PRES');
+        const ipapIdx = findSignalIndex(brpHeader, 'IPAP');
+
+        if (flowIdx === -1) {
+            setStatus('Flow signal not found in BRP. Signals: ' + brpHeader.signalLabels.join(', '), 'error');
+            return;
+        }
+
+        const flowRaw = extractSignal(brpView, brpHeader, flowIdx);
+        const flowSR = brpHeader.signalSampleRates[flowIdx];
+        const sessionSecs = brpHeader.numRecords * brpHeader.recordDuration;
+
+        let pressRaw = null, pressSR = 0;
+        if (pressIdx !== -1) {
+            pressRaw = extractSignal(brpView, brpHeader, pressIdx);
+            pressSR = brpHeader.signalSampleRates[pressIdx];
+        }
+
+        let ipapRaw = null, ipapSR = 0;
+        if (ipapIdx !== -1) {
+            ipapRaw = extractSignal(brpView, brpHeader, ipapIdx);
+            ipapSR = brpHeader.signalSampleRates[ipapIdx];
+        }
+
+        // Parse PLD if provided
+        let leakRaw = null, leakSR = 0;
+        let mvRaw = null, mvSR = 0;
+        let pldLabels = null;
+
+        if (pldFile) {
+            const pldBuf = await readFileAsArrayBuffer(pldFile);
+            const pldView = new DataView(pldBuf);
+            const pldHeader = parseEDFHeader(pldView);
+            pldLabels = pldHeader.signalLabels;
+            console.log('PLD signals:', pldHeader.signalLabels);
+
+            const leakIdx = findSignalIndex(pldHeader, 'LEAK');
+            const mvIdx = findSignalIndex(pldHeader, 'MINVENT', 'MIN VENT', 'MV');
+
+            if (leakIdx !== -1) {
+                leakRaw = extractSignal(pldView, pldHeader, leakIdx);
+                leakSR = pldHeader.signalSampleRates[leakIdx];
+            }
+            if (mvIdx !== -1) {
+                mvRaw = extractSignal(pldView, pldHeader, mvIdx);
+                mvSR = pldHeader.signalSampleRates[mvIdx];
+            }
+            // Check PLD for IPAP if not found in BRP
+            // ResMed labels IPAP as "Press.2s" in PLD (set inspiratory pressure)
+            // Must use exact match to distinguish from MaskPress.2s and EprPress.2s
+            if (!ipapRaw) {
+                let pldIpapIdx = findSignalIndex(pldHeader, 'IPAP');
+                if (pldIpapIdx === -1) {
+                    pldIpapIdx = findSignalIndexExact(pldHeader, 'PRESS');
+                }
+                if (pldIpapIdx !== -1) {
+                    ipapRaw = extractSignal(pldView, pldHeader, pldIpapIdx);
+                    ipapSR = pldHeader.signalSampleRates[pldIpapIdx];
+                }
+            }
+        }
+
+        // Derive MV from flow if not in PLD
+        if (!mvRaw) {
+            setStatus('No PLD MinVent — deriving MV from flow...', '');
+            mvRaw = calculateMinuteVentilation(flowRaw, flowSR);
+            mvSR = flowSR;
+        }
+
+        // Calculate compression and audio length
+        const compressionRatio = Math.max(1, sessionSecs / MAX_DURATION);
+        const audioDuration = Math.min(sessionSecs, MAX_DURATION);
+        const audioSamples = Math.floor(audioDuration * AUDIO_SR);
+
+        state.sessionDuration = sessionSecs;
+        state.audioDuration = audioDuration;
+        state.compressionRatio = compressionRatio;
+
+        setStatus('Rendering audio channels...', '');
+        await new Promise(r => setTimeout(r, 50)); // let UI update
+
+        // Process flow
+        const flowEnv = flowEnvelope(flowRaw, flowSR);
+        const flowCompressed = resampleData(flowEnv, flowSR * compressionRatio, AUDIO_SR);
+        const flowNorm = normalize01(flowCompressed.subarray(0, audioSamples));
+        state.rawEnvelopes.flow = flowNorm;
+        state.hasChannel.flow = true;
+
+        // Process pressure
+        if (pressRaw) {
+            const pressCompressed = resampleData(pressRaw, pressSR * compressionRatio, AUDIO_SR);
+            const pressNorm = normalize01(pressCompressed.subarray(0, audioSamples));
+            state.rawEnvelopes.pressure = pressNorm;
+            state.hasChannel.pressure = true;
+        }
+
+        // Process leak
+        if (leakRaw && pldFile) {
+            const leakCompressed = resampleData(leakRaw, leakSR * compressionRatio, AUDIO_SR);
+            const leakNorm = normalize01(leakCompressed.subarray(0, audioSamples));
+            state.rawEnvelopes.leak = leakNorm;
+            state.hasChannel.leak = true;
+        }
+
+        // Process IPAP
+        if (ipapRaw) {
+            const ipapCompressed = resampleData(ipapRaw, ipapSR * compressionRatio, AUDIO_SR);
+            const ipapNorm = normalize01(ipapCompressed.subarray(0, audioSamples));
+            state.rawEnvelopes.ipap = ipapNorm;
+            state.hasChannel.ipap = true;
+        }
+
+        // Process MV
+        if (mvRaw) {
+            const mvCompressed = resampleData(mvRaw, mvSR * compressionRatio, AUDIO_SR);
+            const mvNorm = normalize01(mvCompressed.subarray(0, audioSamples));
+            state.rawEnvelopes.mv = mvNorm;
+            state.hasChannel.mv = true;
+        }
+
+        // Render audio buffers
+        initAudio();
+
+        if (state.hasChannel.flow) {
+            state.buffers.flow = renderToBuffer(renderFlowChannel(state.rawEnvelopes.flow, AUDIO_SR));
+        }
+        if (state.hasChannel.pressure) {
+            state.buffers.pressure = renderToBuffer(renderPressureChannel(state.rawEnvelopes.pressure, AUDIO_SR));
+        }
+        if (state.hasChannel.leak) {
+            state.buffers.leak = renderToBuffer(renderLeakChannel(state.rawEnvelopes.leak, AUDIO_SR));
+        }
+        if (state.hasChannel.ipap) {
+            state.buffers.ipap = renderToBuffer(renderIPAPChannel(state.rawEnvelopes.ipap, AUDIO_SR));
+        }
+        if (state.hasChannel.mv) {
+            state.buffers.mv = renderToBuffer(renderMVChannel(state.rawEnvelopes.mv, AUDIO_SR));
+        }
+
+        // Update UI — collect raw signal labels for diagnostics
+        const allLabels = ['BRP: ' + brpHeader.signalLabels.join(', ')];
+        if (pldLabels) {
+            allLabels.push('PLD: ' + pldLabels.join(', '));
+        }
+        updateSessionInfo(brpHeader, sessionSecs, compressionRatio, allLabels);
+        updateMixerState();
+        drawVisualization();
+
+        document.getElementById('btnPlay').disabled = false;
+        document.getElementById('btnExport').disabled = false;
+
+        const chCount = Object.values(state.hasChannel).filter(Boolean).length;
+        setStatus(`Ready — ${chCount} channels rendered (${(audioDuration).toFixed(1)}s audio from ${formatTime(sessionSecs)} session)`, 'ok');
+
+    } catch (err) {
+        console.error(err);
+        setStatus('Error: ' + err.message, 'error');
+    }
+}
+
+function renderToBuffer(data) {
+    const buf = state.audioCtx.createBuffer(1, data.length, AUDIO_SR);
+    buf.copyToChannel(data, 0);
+    return buf;
+}
+
+function initAudio() {
+    if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: AUDIO_SR });
+    }
+}
+
+// ---- Playback ----
+
+function startPlayback(offset) {
+    if (!state.audioCtx) return;
+
+    stopPlayback();
+
+    // Resume audio context if suspended (browser autoplay policy)
+    if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+    }
+
+    const now = state.audioCtx.currentTime;
+    offset = offset || 0;
+
+    for (const ch of state.channels) {
+        if (!state.buffers[ch]) continue;
+
+        const source = state.audioCtx.createBufferSource();
+        source.buffer = state.buffers[ch];
+
+        const gain = state.audioCtx.createGain();
+        const vol = state.muted[ch] ? 0 : getVolume(ch);
+        gain.gain.value = vol;
+
+        const panner = state.audioCtx.createStereoPanner();
+        panner.pan.value = getPan(ch);
+
+        source.connect(gain);
+        gain.connect(panner);
+        panner.connect(state.audioCtx.destination);
+
+        source.start(0, offset);
+        state.sources[ch] = source;
+        state.gains[ch] = gain;
+        state.panners[ch] = panner;
+    }
+
+    state.startedAt = now - offset;
+    state.playing = true;
+    state.paused = false;
+
+    // Auto-stop at end
+    const remaining = state.audioDuration - offset;
+    if (remaining > 0) {
+        state._endTimer = setTimeout(() => {
+            stopPlayback();
+            updateTransportUI();
+        }, remaining * 1000 + 100);
+    }
+
+    updateTransportUI();
+    startAnimation();
+}
+
+function pausePlayback() {
+    if (!state.playing || state.paused) return;
+    state.pausedAt = state.audioCtx.currentTime - state.startedAt;
+    stopSources();
+    state.paused = true;
+    state.playing = false;
+    cancelAnimation();
+    updateTransportUI();
+}
+
+function stopPlayback() {
+    stopSources();
+    state.playing = false;
+    state.paused = false;
+    state.pausedAt = 0;
+    if (state._endTimer) { clearTimeout(state._endTimer); state._endTimer = null; }
+    cancelAnimation();
+    updateTransportUI();
+}
+
+function stopSources() {
+    for (const ch of state.channels) {
+        if (state.sources[ch]) {
+            try { state.sources[ch].stop(); } catch (e) {}
+            state.sources[ch] = null;
+        }
+        state.gains[ch] = null;
+        state.panners[ch] = null;
+    }
+}
+
+function getCurrentTime() {
+    if (state.paused) return state.pausedAt;
+    if (!state.playing) return 0;
+    return Math.min(state.audioCtx.currentTime - state.startedAt, state.audioDuration);
+}
+
+function getVolume(ch) {
+    const el = document.getElementById('vol' + capitalize(ch));
+    return el ? parseInt(el.value) / 100 : 0;
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ---- Volume / Mute ----
+
+function getPan(ch) {
+    const el = document.getElementById('pan' + capitalize(ch));
+    return el ? parseInt(el.value) / 100 : 0; // -1 to +1
+}
+
+function updateGain(ch) {
+    if (state.gains[ch]) {
+        const vol = state.muted[ch] ? 0 : getVolume(ch);
+        state.gains[ch].gain.setTargetAtTime(vol, state.audioCtx.currentTime, 0.02);
+    }
+}
+
+function updatePan(ch) {
+    if (state.panners[ch]) {
+        state.panners[ch].pan.setTargetAtTime(getPan(ch), state.audioCtx.currentTime, 0.02);
+    }
+}
+
+// ---- Animation / Visualization ----
+
+const canvas = document.getElementById('vizCanvas');
+const ctx = canvas.getContext('2d');
+
+function drawVisualization(cursorFrac) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr, h = canvas.height / dpr;
+    ctx.clearRect(0, 0, w, h);
+
+    const channelList = state.channels.filter(ch => state.hasChannel[ch]);
+    if (channelList.length === 0) return;
+
+    const bandH = h / channelList.length;
+    const frac = cursorFrac || 0;
+
+    channelList.forEach((ch, idx) => {
+        const y0 = idx * bandH;
+        const envData = state.rawEnvelopes[ch];
+        if (!envData) return;
+
+        // Background band
+        ctx.fillStyle = idx % 2 === 0 ? '#0d0d14' : '#10101a';
+        ctx.fillRect(0, y0, w, bandH);
+
+        // Channel label
+        ctx.fillStyle = CHANNEL_COLORS[ch] + '88';
+        ctx.font = '11px Consolas, monospace';
+        ctx.fillText(ch.toUpperCase(), 6, y0 + 14);
+
+        // Waveform
+        ctx.strokeStyle = CHANNEL_COLORS[ch];
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        const step = Math.max(1, Math.floor(envData.length / w));
+        for (let px = 0; px < w; px++) {
+            const si = Math.floor((px / w) * envData.length);
+            // For display, take a few-sample average for smoothness
+            let val = 0, cnt = 0;
+            for (let k = 0; k < step && si + k < envData.length; k++) { val += envData[si + k]; cnt++; }
+            val = cnt > 0 ? val / cnt : 0;
+            const py = y0 + bandH - val * (bandH - 20) - 4;
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        // Separator
+        ctx.strokeStyle = '#1a1a24';
+        ctx.beginPath();
+        ctx.moveTo(0, y0 + bandH);
+        ctx.lineTo(w, y0 + bandH);
+        ctx.stroke();
+    });
+
+    // Playback cursor
+    if (frac > 0) {
+        const cx = frac * w;
+        ctx.strokeStyle = '#ffffff88';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, 0);
+        ctx.lineTo(cx, h);
+        ctx.stroke();
+    }
+}
+
+function startAnimation() {
+    function frame() {
+        if (!state.playing) return;
+        const t = getCurrentTime();
+        const frac = t / state.audioDuration;
+        drawVisualization(frac);
+        updateTimeDisplay(t);
+        updateTimeline(frac);
+        state.animFrame = requestAnimationFrame(frame);
+    }
+    state.animFrame = requestAnimationFrame(frame);
+}
+
+function cancelAnimation() {
+    if (state.animFrame) { cancelAnimationFrame(state.animFrame); state.animFrame = null; }
+}
+
+// ---- UI Helpers ----
+
+function formatTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const rm = m % 60;
+        return `${h}h ${rm.toString().padStart(2,'0')}m`;
+    }
+    return `${m.toString().padStart(2,'0')}:${s.toFixed(1).padStart(4,'0')}`;
+}
+
+function updateTimeDisplay(currentSec) {
+    document.getElementById('timeDisplay').textContent =
+        formatTime(currentSec || 0) + ' / ' + formatTime(state.audioDuration);
+}
+
+function updateTimeline(frac) {
+    document.getElementById('timelineProgress').style.width = (frac * 100) + '%';
+    document.getElementById('timelineCursor').style.left = (frac * 100) + '%';
+}
+
+function updateTransportUI() {
+    document.getElementById('btnPlay').disabled = state.playing;
+    document.getElementById('btnPause').disabled = !state.playing;
+    document.getElementById('btnStop').disabled = !state.playing && !state.paused;
+    if (state.playing) {
+        document.getElementById('btnPlay').classList.remove('active');
+    }
+    if (!state.playing && !state.paused) {
+        updateTimeDisplay(0);
+        updateTimeline(0);
+        drawVisualization(0);
+    }
+}
+
+function updateSessionInfo(header, sessionSecs, ratio, signalLabels) {
+    document.getElementById('sessionInfo').style.display = 'block';
+    document.getElementById('infoDate').textContent = header.startDate + ' ' + header.startTime;
+    document.getElementById('infoDuration').textContent = formatTime(sessionSecs);
+    document.getElementById('infoRatio').textContent = ratio.toFixed(1) + ':1';
+
+    const chNames = state.channels.filter(ch => state.hasChannel[ch]).map(ch => ch.toUpperCase());
+    document.getElementById('infoChannels').textContent = chNames.join(', ');
+    document.getElementById('infoSignals').textContent = signalLabels.join(', ');
+}
+
+function updateMixerState() {
+    for (const ch of state.channels) {
+        const strip = document.getElementById('strip' + capitalize(ch));
+        if (state.hasChannel[ch]) {
+            strip.classList.remove('disabled');
+        } else {
+            strip.classList.add('disabled');
+        }
+    }
+}
+
+function setStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = type || '';
+}
+
+// ---- WAV Export ----
+
+function exportWAV() {
+    setStatus('Mixing and exporting stereo WAV...', '');
+
+    const chList = state.channels.filter(ch => state.hasChannel[ch] && state.buffers[ch]);
+    if (chList.length === 0) return;
+
+    // Find max length
+    let maxLen = 0;
+    for (const ch of chList) maxLen = Math.max(maxLen, state.buffers[ch].length);
+
+    // Mix at current volumes and pan positions (stereo)
+    const mixL = new Float32Array(maxLen);
+    const mixR = new Float32Array(maxLen);
+    for (const ch of chList) {
+        const vol = state.muted[ch] ? 0 : getVolume(ch);
+        const pan = getPan(ch); // -1 to +1
+        // Equal-power pan law
+        const angle = (pan + 1) * Math.PI / 4; // 0 to π/2
+        const gainL = Math.cos(angle) * vol;
+        const gainR = Math.sin(angle) * vol;
+        const data = state.buffers[ch].getChannelData(0);
+        for (let i = 0; i < data.length; i++) {
+            mixL[i] += data[i] * gainL;
+            mixR[i] += data[i] * gainR;
+        }
+    }
+
+    // Normalize to prevent clipping
+    let peak = 0;
+    for (let i = 0; i < maxLen; i++) {
+        const aL = Math.abs(mixL[i]);
+        const aR = Math.abs(mixR[i]);
+        if (aL > peak) peak = aL;
+        if (aR > peak) peak = aR;
+    }
+    if (peak > 0.99) {
+        const scale = 0.95 / peak;
+        for (let i = 0; i < maxLen; i++) { mixL[i] *= scale; mixR[i] *= scale; }
+    }
+
+    // Build stereo WAV (interleaved L R L R ...)
+    const numChannels = 2;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const dataLength = maxLen * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, AUDIO_SR, true);
+    view.setUint32(28, AUDIO_SR * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    let off = 44;
+    for (let i = 0; i < maxLen; i++) {
+        const sL = Math.max(-1, Math.min(1, mixL[i]));
+        const sR = Math.max(-1, Math.min(1, mixR[i]));
+        view.setInt16(off, sL < 0 ? sL * 0x8000 : sL * 0x7FFF, true); off += 2;
+        view.setInt16(off, sR < 0 ? sR * 0x8000 : sR * 0x7FFF, true); off += 2;
+    }
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'breathsong-export.wav';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('WAV exported.', 'ok');
+}
+
+// ---- Event Wiring ----
+
+// Drop zone
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+
+    const allFiles = Array.from(fileList);
+    const edfFiles = allFiles.filter(f => f.name.toUpperCase().endsWith('.EDF'));
+    const philipsFiles = allFiles.filter(f => /\.(005|006)$/i.test(f.name));
+
+    const files = edfFiles.length > 0 ? edfFiles : philipsFiles;
+    const isPhilips = edfFiles.length === 0 && philipsFiles.length > 0;
+
+    if (files.length === 0) {
+        setStatus('No supported files found. Drop .edf, .005, or .006 files.', 'error');
+        return;
+    }
+
+    // Update drop zone
+    dropZone.classList.add('loaded');
+    const names = files.map(f => f.name).join(', ');
+    const tag = isPhilips ? ' (Philips)' : ' (ResMed)';
+    dropZone.innerHTML = `<div class="files">${names}${tag}</div>`;
+
+    // Reset state
+    stopPlayback();
+    state.hasChannel = { flow: false, pressure: false, leak: false, ipap: false, mv: false };
+    state.buffers = { flow: null, pressure: null, leak: null, ipap: null, mv: null };
+    state.rawEnvelopes = { flow: null, pressure: null, leak: null, ipap: null, mv: null };
+
+    if (isPhilips) {
+        loadPhilipsFiles(files);
+    } else {
+        loadFiles(files);
+    }
+}
+
+// Transport
+document.getElementById('btnPlay').addEventListener('click', () => {
+    if (state.paused) {
+        startPlayback(state.pausedAt);
+    } else {
+        startPlayback(0);
+    }
+});
+document.getElementById('btnPause').addEventListener('click', () => pausePlayback());
+document.getElementById('btnStop').addEventListener('click', () => stopPlayback());
+
+// Timeline seek
+document.getElementById('timelineWrap').addEventListener('click', e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const seekTo = frac * state.audioDuration;
+    if (state.playing) {
+        startPlayback(seekTo);
+    } else {
+        state.pausedAt = seekTo;
+        state.paused = true;
+        updateTimeDisplay(seekTo);
+        updateTimeline(frac);
+        drawVisualization(frac);
+        document.getElementById('btnPlay').disabled = false;
+        document.getElementById('btnStop').disabled = false;
+    }
+});
+
+// Volume sliders
+for (const ch of state.channels) {
+    const slider = document.getElementById('vol' + capitalize(ch));
+    const label = document.getElementById('vol' + capitalize(ch) + 'Label');
+    slider.addEventListener('input', () => {
+        label.textContent = slider.value + '%';
+        updateGain(ch);
+    });
+}
+
+// Pan sliders
+for (const ch of state.channels) {
+    const slider = document.getElementById('pan' + capitalize(ch));
+    const label = document.getElementById('pan' + capitalize(ch) + 'Label');
+    slider.addEventListener('input', () => {
+        const v = parseInt(slider.value);
+        label.textContent = v === 0 ? 'C' : (v < 0 ? 'L' + Math.abs(v) : 'R' + v);
+        updatePan(ch);
+    });
+    // Double-click to reset to center
+    slider.addEventListener('dblclick', () => {
+        slider.value = 0;
+        label.textContent = 'C';
+        updatePan(ch);
+    });
+}
+
+// Mute buttons
+for (const ch of state.channels) {
+    const btn = document.getElementById('mute' + capitalize(ch));
+    btn.addEventListener('click', () => {
+        state.muted[ch] = !state.muted[ch];
+        btn.classList.toggle('muted', state.muted[ch]);
+        btn.textContent = state.muted[ch] ? 'Muted' : 'Mute';
+        updateGain(ch);
+    });
+}
+
+// Export
+document.getElementById('btnExport').addEventListener('click', exportWAV);
+
+// Init time display
+updateTimeDisplay(0);
+
+// Handle canvas resize
+function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawVisualization(state.playing ? getCurrentTime() / state.audioDuration : 0);
+}
+window.addEventListener('resize', resizeCanvas);
+// Initial sizing after layout
+setTimeout(resizeCanvas, 100);
+
+</script>
+</body>
+</html>
