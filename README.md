@@ -21,6 +21,45 @@ queues the files; press **Process selected** to begin analysis. The tool ignores
 non-EDF files. Drag-and-drop remains available. No install, build step, server,
 or network connection is required.
 
+## Companion tools and site updates
+
+The main page at [wobble-analysis-tool.xyz](https://wobble-analysis-tool.xyz/)
+links to these tools:
+
+- **[WAVE](https://wobble-analysis-tool.xyz/wave/)** — Wobble Amplitude &
+  Variability Evaluation: wave envelopes, packets, longitudinal trends, Wubscape,
+  sensitivity checks, and surrogate controls. It runs locally in the browser.
+- **Monke / Wake** at `/monke-wake/` — the existing embedded workbench.
+- **Wub Event Reader** at `/wub-event-reader/`.
+- **BreathSong** at `/breathsong/`.
+- **Legacy WAT v0.22** at `/v0.22/`.
+
+Each companion page includes a **Back to WAT** link. The old `/monk-wake/`
+spelling redirects to `/monke-wake/`.
+
+### Build and publish
+
+1. Update the root `index.html` for the main page and `public/<tool>/index.html`
+   for the existing standalone companions. For WAVE, edit `tools/wave/`;
+   `public/wave/index.html` is its generated, portable HTML file.
+2. Run `npm ci`, then `npm run build`. This regenerates WAVE and builds the site
+   into `dist/`, including all companion routes. `npm run build:wave` regenerates
+   only WAVE.
+3. Review and commit the changes, including the generated WAVE page, then push
+   to `main`. The existing Cloudflare Git integration builds and publishes the
+   production site. Check **Workers Builds: wobble-analysis-tool** on that exact
+   commit, then verify the public domain and changed routes.
+
+The production integration was verified through GitHub's successful Workers
+Builds check on September 15, 2026. `wrangler.toml` retains an older Pages output
+configuration; the existing Cloudflare build settings are managed in its
+dashboard. Do not replace that integration or its domain configuration merely
+to update static pages. See [Cloudflare's Git integration documentation](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).
+
+Keep EDF recordings and saved patient results out of the repository and `dist/`.
+WAVE ships a synthetic demo; its numerical validation recordings are private and
+are not part of the deployed site.
+
 ## Filtering pipeline
 
 1. Validate and calibrate the EDF flow channel.

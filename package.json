@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "npm run build:wave && vite build",
+    "preview": "vite preview",
+    "build:wave": "node tools/wave/build.cjs"
   },
   "dependencies": {
     "react": "^18.2.0",

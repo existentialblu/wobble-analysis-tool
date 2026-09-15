@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0",
+  "date": "2026-09-15",
+  "reference": {
+    "name": "WAT",
+    "version": "0.5 pre-release",
+    "commit": "fcd24e08e06ee0f0d42e648185f03bda64e2bce6"
+  },
+  "cohort": {
+    "sessions": 147,
+    "comparison": "Prior Python/SciPy analysis with identical settings",
+    "maximumAbsoluteDifferences": {
+      "amplitude": 1.2816414596272807e-12,
+      "fraction": 0,
+      "relativeAmplitude": 2.968181256335356e-13,
+      "relativeFraction": 0,
+      "packetCount": 0,
+      "usableSeconds": 3.637978807091713e-12
+    }
+  },
+  "checks": {
+    "passed": 10,
+    "scope": [
+      "Numerical engine",
+      "Worker protocol using real EDF data",
+      "Assembled HTML DOM integration with mocked canvas"
+    ],
+    "liveBrowserRenderingTested": false
+  },
+  "privacy": "No patient EDF data, reference arrays or patient summaries are included in this package."
+}
