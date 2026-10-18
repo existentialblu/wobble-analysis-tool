@@ -1,0 +1,3 @@
+export const PAGE_SIZE=7;
+export function nightPage(portraits,month='',page=0){const nights=portraits.filter(p=>!p.combined&&(!month||p.key.startsWith(month))),pages=Math.max(1,Math.ceil(nights.length/PAGE_SIZE)),index=Math.max(0,Math.min(pages-1,page));return{nights,page:index,pages,total:nights.length,items:nights.slice(index*PAGE_SIZE,(index+1)*PAGE_SIZE)}}
+export function nearestNight(portraits,date){const time=Date.parse(date+'T12:00:00Z');if(!Number.isFinite(time))return null;let best=null,distance=Infinity;for(const p of portraits){if(p.combined||!/^\d{4}-\d{2}-\d{2}$/.test(p.key))continue;const d=Math.abs(Date.parse(p.key+'T12:00:00Z')-time);if(d<distance){distance=d;best=p}}return best}

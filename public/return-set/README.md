@@ -16,9 +16,21 @@ Source files are served directly from `public/return-set/`. Tests live in `tools
 
 ## Inputs
 
-Open one or several DATALOG night folders over successive imports, or select BRP / PLD EDF files or ZIPs. Relevant files are selected automatically. Each recording date becomes a gallery item; re-importing that date replaces it. Recording dates use noon-to-noon grouping, preserving EDF wall-clock fields.
+Open a complete DATALOG folder for a large collection, add individual night folders over successive imports, or select BRP / PLD EDF files or ZIPs. Relevant files are selected automatically. Each recording date becomes a gallery item; re-importing that date replaces it. Recording dates use noon-to-noon grouping, preserving EDF wall-clock fields.
 
 Continuous EDF, EDF+C, EDF+D with timekeeping annotations, EDF.GZ, stored ZIP and deflated ZIP are supported. Signal calibration and individual sampling rates are honoured. Patient identification header fields are not used. BDF, ZIP64, encrypted ZIPs and proprietary PAP databases are unsupported. Summary-only OSCAR exports do not provide the waveforms required here.
+
+## Large collections and navigation
+
+The browser keeps one night's decoded waveforms at a time, then retains only small regression sufficient-statistic matrices and portrait metadata. The pooled fit combines these matrices with equal weight per night. Its cost grows linearly with the number of nights, without re-reading the waveforms. Raw sample rows are released after each night. Normalisation, quality exclusions, selected windows and model definition match the initial version; regression checks agree within floating-point precision.
+
+Only seven thumbnails are generated for the current page, one per animation frame. Use previous/next pages, the month filter, or the date field (jumps to the nearest loaded night). Left/right arrows on the fractal move between nights and bring the selected night's page into view. **All nights** stays pinned beneath the gallery. Colour changes redraw the current page only.
+
+**Stop import** keeps completed nights. Progress reports the recording count and a rough time estimate after the first three nights. Regular EDF folders are preferred for large batches. Up to 20,000 EDF files can be queued per import; archive expansion is limited to 500 MB and ZIP64 is unsupported. Compressed imports need extra expansion memory, so avoid one giant archive for hundreds of nights.
+
+Development benchmark: 600 synthetic eight-hour nights with paired 25 Hz BRP + PLD data (1.76 GB of virtual input) processed in 20.9 s on the development machine; PLD-only EDF imports took about 6.6 s. These timings exclude physical disk latency and browser rendering. About 1.3 MB of JSON represents the 600 nights’ retained regression statistics; runtime object and temporary decoding memory are larger.
+
+Run `node tools/return-set/benchmark.mjs 600` for a reproducible synthetic eight-hour, 25 Hz BRP + PLD stress test. It reuses synthetic file buffers and excludes physical disk latency; timing is hardware dependent. Tests separately import 600 eight-hour PLD EDF recordings and exercise a 600-item gallery with a mocked DOM. These are synthetic checks, not a timing guarantee for real recordings or browsers.
 
 ## Portrait method
 
