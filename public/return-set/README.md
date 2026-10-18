@@ -42,6 +42,8 @@ For each night, ventilation is standardised with the first two thirds of its sel
 
 Rows never cross window boundaries. The first two thirds of rows train validation fits; the last third provides one-step prediction checks against linear and persistence baselines. All rows are refitted for the portrait. The pooled portrait fits all nights' locally normalised rows together, weighting each night equally regardless of sample count. It does not average coefficients or blend images.
 
+Initial views and thumbnails estimate the occupied initial-state region with a coarse orbit scan, expand the search if the shape touches its border, and refine the bounds. The camera centres that region and fits it with consistent margins while preserving aspect ratio. Bounds are cached per fit. Reset reapplies this framing; colour changes preserve an explored camera. This changes only the camera, and displayed size is independently scaled for each portrait. Very fine detached features can fall outside the sampled bounds.
+
 The real fitted map is extended to complex numbers. Each pixel varies the initial state `z[0]`, with `z[-1]=0`, while retaining the fitted bias and coefficients. The renderer iterates 320 times and colours boundedness and escape behaviour. Thumbnails use 160 iterations. This extension is a chosen mathematical construction, not a measurement of physiological fractality.
 
 These experimental portraits are not validated phenotypes or respiratory-controller estimates. Geometry depends on model choice and extrapolation beyond observed data. Each recording includes the effects of its PAP device. Cross-night changes may reflect therapy, signal source or other state changes.
