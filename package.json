@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "npm run build:wave && vite build",
     "preview": "vite preview",
-    "build:wave": "node tools/wave/build.cjs"
+    "build:wave": "node tools/wave/build.cjs",
+    "test:return-set": "node --test tools/return-set/tests/*.test.js"
   },
   "dependencies": {
     "react": "^18.2.0",

@@ -32,6 +32,7 @@ links to these tools:
 - **Monke / Wake** at `/monke-wake/` — the existing embedded workbench.
 - **Wub Event Reader** at `/wub-event-reader/`.
 - **BreathSong** at `/breathsong/`.
+- **[Return Set](https://wobble-analysis-tool.xyz/return-set/)** at `/return-set/` — ResMed-only nightly fractals, a pooled all-nights portrait, and PNG export. Source and method notes are in [`public/return-set/`](public/return-set/README.md); run `npm run test:return-set` for its parser, model, import and interaction checks.
 - **Legacy WAT v0.22** at `/v0.22/`.
 
 Each companion page includes a **Back to WAT** link. The old `/monk-wake/`
