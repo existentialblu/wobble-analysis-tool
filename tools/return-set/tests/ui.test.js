@@ -6,7 +6,7 @@ const documentEvents={},doc={body:new Element('body'),createElement:tag=>new Ele
 globalThis.ImageData=class{constructor(data,width,height){this.data=data;this.width=width;this.height=height}};globalThis.document=doc;globalThis.devicePixelRatio=1;globalThis.innerWidth=1200;globalThis.requestAnimationFrame=f=>queueMicrotask(()=>f(performance.now()));globalThis.ResizeObserver=class{observe(){}};globalThis.Option=class extends Element{constructor(text,value=text){super('option');this.textContent=text;this.value=value}};const liveWorkers=[],clients=[];
 globalThis.Worker=class{constructor(){clients.push(this);this.worker=new NodeWorker(new URL('./worker-harness.mjs',import.meta.url));liveWorkers.push(this.worker);this.worker.on('message',data=>this.onmessage?.({data}));this.worker.on('error',e=>{console.error(e);this.onerror?.(e)})}postMessage(d){this.last=d;this.worker.postMessage(d)}};
 let lastBlob;URL.createObjectURL=b=>{lastBlob=b;return'blob:test'};URL.revokeObjectURL=()=>{};
-const waitFor=async(fn,ms=10000)=>{const t=Date.now();while(!fn()){if(Date.now()-t>ms)throw Error('Timed out waiting for UI state. '+byId.get('error').textContent);await new Promise(r=>setTimeout(r,20))}};
+const waitFor=async(fn,ms=10000)=>{const t=Date.now();while(!fn()){if(Date.now()-t>ms)throw Error('Timed out waiting for UI state. '+byId.get('errorMessage').textContent);await new Promise(r=>setTimeout(r,20))}};
 test('actual app and worker produce nightly and pooled portraits, allow hiding controls, and export a PNG',async()=>{try{
  await import('../../../public/return-set/app.js');
  await waitFor(()=>byId.get('gallery').children.length===2&&!byId.get('save').disabled);
@@ -19,13 +19,16 @@ test('actual app and worker produce nightly and pooled portraits, allow hiding c
  byId.get('hideUI').click();for(const f of documentEvents.keydown)f({key:'Escape',target:doc.body,preventDefault(){}});assert(!doc.body.classList.contains('clean'));
  byId.get('save').click();await waitFor(()=>lastBlob);assert(lastBlob instanceof Blob);assert.equal(await lastBlob.text(),'image');
  byId.get('about').click();assert(byId.get('aboutDialog').open);byId.get('clear').click();await waitFor(()=>!byId.get('gallery').children.length);assert(byId.get('save').disabled);
- byId.get('files').files=[new File(['text'],'unrelated.txt')];byId.get('files').onchange();assert(!byId.get('error').hidden);assert.match(byId.get('error').textContent,/BRP and PLD/);
+ byId.get('files').files=[new File(['text'],'unrelated.txt')];byId.get('files').onchange();assert(!byId.get('error').hidden);assert.match(byId.get('errorMessage').textContent,/BRP and PLD/);
  byId.get('examples').click();await waitFor(()=>byId.get('gallery').children.length===2);assert(byId.get('error').hidden);
  // Exercise actual app navigation with a 600-night gallery, while keeping the
  // real-worker examples/import path checks above separate from UI fixtures.
  const rows=Array.from({length:600},(_,i)=>{const key=new Date(Date.UTC(2024,0,1+i)).toISOString().slice(0,10);return{id:key,key,label:key,fit:{available:true,coeff:[0,1.4,-1,.02,.04],radius:8,windowCount:60}}}).reverse();
- clients[0].onmessage({data:{id:clients[0].last.id,type:'gallery',portraits:[...rows,{id:'combined',key:'combined',combined:true,fit:{...rows[0].fit,nightCount:600}}]}});
+ clients[0].onmessage({data:{id:clients[0].last.id,type:'gallery',errors:['148 recordings could not be read. Example reason.'],portraits:[...rows,{id:'combined',key:'combined',combined:true,fit:{...rows[0].fit,nightCount:600}}]}});
  assert.equal(byId.get('gallery').children.length,7);assert.equal(byId.get('pageInfo').textContent,'1–7 of 600');
+ assert(!byId.get('error').hidden);assert.match(byId.get('errorMessage').textContent,/148 recordings/);byId.get('dismissError').click();assert(byId.get('error').hidden);assert.equal(byId.get('title').textContent,'22 August 2025');
+ byId.get('error').hidden=false;for(const f of documentEvents.keydown)f({key:'Escape',target:doc.body,preventDefault(){}});assert(byId.get('error').hidden);
+ assert.match(fs.readFileSync(new URL('../../../public/return-set/style.css',import.meta.url),'utf8'),/body\.clean #error\{display:none\}/);
  byId.get('pageNext').click();assert.equal(byId.get('pageInfo').textContent,'8–14 of 600');
  byId.get('monthFilter').value='2024-03';byId.get('monthFilter').onchange();assert.equal(byId.get('pageInfo').textContent,'1–7 of 31');
  byId.get('dateJump').value='2024-01-01';byId.get('dateJump').onchange();assert.equal(byId.get('title').textContent,'1 January 2024');assert.equal(byId.get('monthFilter').value,'');assert.equal(byId.get('pageInfo').textContent,'596–600 of 600');
