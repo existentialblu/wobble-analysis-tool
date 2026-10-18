@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {portraitFrame,Portrait,previewPixels,PALETTES} from '../../../public/return-set/portrait.js';
+globalThis.document={hidden:false,addEventListener(){}};
+globalThis.requestAnimationFrame=()=>1;
 const circle=radius=>({available:true,coeff:[0,0,0,1/radius**2,0],radius:3});
 test('auto framing gives analytically known circles consistent margins across very different scales',()=>{
  for(const radius of [.01,.1,1,10]){const fit=circle(radius),before=JSON.stringify(fit);for(const [w,h]of [[800,800],[120,84],[400,900],[1200,500]]){const frame=portraitFrame(fit,w,h),visibleDiameter=frame.span*Math.max(w,h)/Math.min(w,h),occupancy=2*radius/(frame.span);assert(frame.estimated);assert(Math.abs(frame.center[0])<1e-10);assert(Math.abs(frame.center[1])<1e-10);assert(occupancy>.78&&occupancy<.84);assert(visibleDiameter>2*radius)}assert.equal(JSON.stringify(fit),before)}

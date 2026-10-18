@@ -8,7 +8,7 @@ A browser-local fractal gallery: one portrait per night of breathing, plus a poo
 
 ## Run and test
 
-Buildless static HTML/ES modules in `public/return-set/`; no dependencies or external scripts. A browser worker decodes EDF and fits the models. WebGL, with a progressive CPU fallback, renders the fractals. The root Vite build copies this directory unchanged into `dist/return-set/`.
+Buildless static HTML/ES modules in `public/return-set/`; no dependencies or external scripts. A browser worker decodes EDF and fits the models. WebGL, with a progressive CPU fallback, renders the fractals on demand. Each frame is copied to a still 2D canvas; after 250 ms without a view change, the temporary WebGL context is released. Hidden tabs suspend rendering, and PNG export uses the retained still image. The root Vite build copies this directory unchanged into `dist/return-set/`.
 
 From the repository root: `npm run test:return-set`.
 
