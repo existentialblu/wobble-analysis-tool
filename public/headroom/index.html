@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one column instrument panel. Load bar, then the 3D room, then the selected night. */
+:root {
+  --bg: #f1f4f3;
+  --panel: #ffffff;
+  --ink: #17211f;
+  --muted: #5a6966;
+  --line: #d3dbd8;
+  --accent: #0f7a6c;
+  --mark: #c2410c;
+  --old: #b5c6c1;
+  --less: #6d4fc2;
+  --display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --panel: #172120; --ink: #e6eeec; --muted: #93a5a1;
+    --line: #2a3836; --accent: #4fd1bd; --mark: #ff9a5c; --old: #39504b; --less: #b39dff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --panel: #172120; --ink: #e6eeec; --muted: #93a5a1;
+  --line: #2a3836; --accent: #4fd1bd; --mark: #ff9a5c; --old: #39504b; --less: #b39dff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--display); font-size: 16px; line-height: 1.45;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+h1 { font-size: 2rem; font-stretch: 80%; font-weight: 700; letter-spacing: 0.01em; margin: 0; }
+h2 { font-size: 1.05rem; font-stretch: 85%; font-weight: 600; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; }
+.wat-home-nav { margin: 0; }
+.wat-home-link { display: inline-flex; align-items: center; min-height: 38px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--accent); font: 600 13px/1.4 var(--display); text-decoration: none; }
+.wat-home-link:hover { border-color: var(--accent); }
+.wat-home-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.spread { justify-content: space-between; }
+button, .filebtn {
+  font: inherit; font-weight: 500; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px; cursor: pointer;
+}
+button:hover, .filebtn:hover { border-color: var(--accent); }
+button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filebtn { position: relative; }
+#drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 12px; }
+#drop.over { border-color: var(--accent); }
+#prog { width: 100%; height: 6px; accent-color: var(--accent); }
+#prog[hidden] { display: none; }
+#status { color: var(--muted); font-family: var(--mono); font-size: 0.82rem; margin: 0; overflow-wrap: anywhere; }
+.badge { font-family: var(--mono); font-size: 0.75rem; color: var(--mark); border: 1px solid var(--mark); border-radius: 99px; padding: 2px 9px; }
+.badge[hidden], .filebtn[hidden] { display: none; }
+label.field { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--muted); }
+label.field input { font: inherit; font-family: var(--mono); font-size: 0.9rem; width: 6.5rem; padding: 5px 7px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; }
+label.check { display: flex; gap: 6px; align-items: center; font-size: 0.9rem; }
+#empty { text-align: center; padding: 40px 0; }
+#tunnel[hidden] { display: none; }
+#eras { width: 100%; height: 230px; display: block; cursor: pointer; }
+#marks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#marks li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--mono); font-size: 0.85rem; }
+#marks input[type="text"] { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; width: 14rem; }
+#marks button { padding: 3px 9px; font-size: 0.85rem; }
+#legend[hidden] { display: none; }
+button[hidden] { display: none; }
+#tunnel { width: 100%; height: min(66vh, 620px); min-height: 360px; display: block; border-radius: 8px; background: var(--bg); touch-action: none; cursor: ns-resize; }
+#night { flex: 1 1 220px; accent-color: var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+.tile .k { font-size: 0.75rem; color: var(--muted); }
+.tile .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; overflow-wrap: anywhere; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.plot2d { width: 100%; height: 280px; }
+.read { max-width: 65ch; color: var(--muted); font-size: 0.93rem; }
+.read p { margin: 0 0 8px; }
+.read strong { color: var(--ink); font-weight: 600; }
+details summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="wat-home-nav" aria-label="WAT navigation"><a class="wat-home-link" href="https://wobble-analysis-tool.xyz/">← Back to WAT</a></nav>
+  <header>
+    <h1>Headroom</h1>
+    <p class="sub">Where an ASV spends its pressure support range, one slice per night.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-load">
+    <div class="row spread">
+      <h2 id="h-load">Data</h2>
+      <span class="badge" id="demoBadge" hidden>Example data, invented</span>
+    </div>
+    <div id="drop">
+      <div class="row">
+        <label class="filebtn">Add files<input type="file" id="pickFiles" multiple></label>
+        <label class="filebtn" id="dirBtn">Add a whole folder<input type="file" id="pickDir" webkitdirectory multiple></label>
+        <button type="button" id="demoBtn">Show example data</button>
+        <button type="button" id="clearBtn">Clear all</button>
+      </div>
+      <p class="sub" style="font-size:0.85rem;margin-top:8px">Headroom reads ResMed <code>*_PLD.edf</code> files and keeps only ASV sessions (fixed pressure support is skipped), plus <code>STR.edf</code> for the settings in force each night if you have it. Other files in the folder are skipped without being read. Each batch you add joins the nights already loaded, so a phone can go one day folder at a time. On a computer, pick or drop the whole SD card. Nothing leaves this browser.</p>
+    </div>
+    <p id="status" role="status">Loading.</p>
+    <progress id="prog" hidden></progress>
+    <details>
+      <summary>Rail settings</summary>
+      <div class="row" style="margin-top:10px">
+        <label class="field" for="minPS">PS min, cmH₂O<input id="minPS" type="number" step="0.2" min="0" placeholder="auto"></label>
+        <label class="field" for="maxPS">PS max, cmH₂O<input id="maxPS" type="number" step="0.2" min="0" placeholder="auto"></label>
+        <label class="field" for="tol">Rail tolerance<input id="tol" type="number" step="0.05" min="0" value="0.2"></label>
+        <label class="field" for="minHours">Shortest night, h<input id="minHours" type="number" step="0.5" min="0" value="2"></label>
+      </div>
+      <p class="sub" style="font-size:0.85rem;margin-top:8px">Typed values apply only to nights with no settings from STR.edf. Left blank, the floor is the lowest PS seen that night and the ceiling is the highest PS seen within a week either side of it.</p>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="h-room">
+    <div class="row spread">
+      <h2 id="h-room">The tunnel</h2>
+      <span class="sub" style="font-size:0.85rem">Scroll, drag or use arrow keys to move through time</span>
+    </div>
+    <div class="row">
+      <div class="row" role="group" aria-label="Colouring">
+        <button type="button" data-mode="density" aria-pressed="true">Density</button>
+        <button type="button" data-mode="diff" aria-pressed="false">Difference from baseline</button>
+      </div>
+      <label class="check" for="baseline">Baseline <select id="baseline"></select></label>
+      <label class="check" for="contrast">Contrast <input type="range" id="contrast" min="1" max="10" step="0.5" value="3"></label>
+      <label class="check" for="kiteOn"><input type="checkbox" id="kiteOn" checked> Shape</label>
+      <button type="button" id="markBtn">Mark this night</button>
+    </div>
+    <p id="legend" class="sub" style="font-size:0.85rem;margin:0" hidden><span style="color:var(--accent);font-weight:600">Teal</span>: more time there than the baseline era. <span style="color:var(--less);font-weight:600">Violet</span>: less. Blank: same as baseline.</p>
+    <canvas id="tunnel" tabindex="0" aria-label="Nights as slices in a tunnel. Arrow keys move forward and back in time."></canvas>
+    <p id="empty" class="sub" hidden>No nights loaded. Add files above, or show the example data.</p>
+    <div class="row">
+      <button type="button" id="prev" aria-label="Previous night">◀</button>
+      <input type="range" id="night" min="0" max="0" value="0" aria-label="Night">
+      <button type="button" id="next" aria-label="Next night">▶</button>
+      <button type="button" id="play" aria-pressed="false">Play</button>
+      <label class="check" for="speed">Speed
+        <select id="speed">
+          <option value="1">1 night/s</option>
+          <option value="2">2 nights/s</option>
+          <option value="4" selected>4 nights/s</option>
+          <option value="8">8 nights/s</option>
+          <option value="16">16 nights/s</option>
+          <option value="32">32 nights/s</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-eras">
+    <div class="row spread">
+      <h2 id="h-eras">Eras</h2>
+      <div class="row">
+        <span class="sub" style="font-size:0.85rem">Each era pooled into one slice. Click one to jump there.</span>
+        <button type="button" class="dl" id="saveErasPng" hidden>Save eras image</button>
+        <button type="button" class="dl" id="saveAllCsv" hidden>Save all nights (CSV)</button>
+        <button type="button" id="copyAllCsv">Copy all nights (CSV)</button>
+      </div>
+    </div>
+    <canvas id="eras" aria-label="One pooled slice per era"></canvas>
+    <ul id="marks"></ul>
+  </section>
+
+  <section class="panel" aria-labelledby="h-night">
+    <div class="row spread">
+      <h2 id="h-night">Selected night</h2>
+      <div class="row">
+        <button type="button" class="dl" id="saveNightPng" hidden>Save image (PNG)</button>
+        <button type="button" class="dl" id="saveNightCsv" hidden>Save numbers (CSV)</button>
+      </div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="pair">
+      <div id="trace" class="plot2d"></div>
+      <div id="phase" class="plot2d"></div>
+    </div>
+  </section>
+
+  <section class="read">
+    <p>Each slice is one night. Left to right is <strong>pressure support</strong>; up and down is <strong>slew</strong>, how fast PS was moving, rising above the middle line and falling below it. Darker means more time spent there, from the machine's 2 second samples.</p>
+    <p>The orange lines are that night's <strong>floor</strong> and <strong>ceiling</strong>, thicker the more of the night PS sat on them. Joined slice to slice they make the walls, so a settings change shows as a step in the wall.</p>
+    <p>The dark <strong>shape</strong> sums up each night with four corners. Left and right are where PS usually sits low and high (10th and 90th percentiles). Top is how fast it typically climbs and bottom how fast it falls (90th percentiles of slew), each placed at the average PS while climbing or falling. In the difference view, the dashed shape is the baseline era's.</p>
+    <p>A calm night is a small smudge near the floor. Pumping stretches into a wide loop through the middle. Ricocheting between the rails piles up dark columns on both orange lines.</p>
+  </section>
+</main>
+
+<script src="plotly-2.35.2.min.js"></script>
+<script id="core">
+/* ---------- Core: EDF parsing and night metrics. No DOM in this block. ---------- */
+function edfParse(buf, want) {
+  if (buf.byteLength < 256) throw new Error("file too short to be EDF");
+  const u8 = new Uint8Array(buf);
+  const str = (o, n) => { let s = ""; for (let i = o; i < o + n; i++) s += String.fromCharCode(u8[i]); return s.trim(); };
+  const d = str(168, 8).split("."), t = str(176, 8).split(".");
+  let yy = +d[2]; yy += yy >= 85 ? 1900 : 2000;
+  const startMs = Date.UTC(yy, +d[1] - 1, +d[0], +t[0], +t[1], +t[2]);
+  const hdrBytes = +str(184, 8), recDur = +str(244, 8) || 1, ns = +str(252, 4);
+  if (!ns || buf.byteLength < 256 + ns * 256) throw new Error("bad EDF header");
+  const base = 256, f = (block, i, n) => str(base + block + i * n, n);
+  const sigs = [];
+  let off = 0;
+  for (let i = 0; i < ns; i++) {
+    const s = {
+      label: f(0, i, 16),
+      pmin: +f(ns * 104, i, 8), pmax: +f(ns * 112, i, 8),
+      dmin: +f(ns * 120, i, 8), dmax: +f(ns * 128, i, 8),
+      spr: +f(ns * 216, i, 8), off
+    };
+    off += s.spr; sigs.push(s);
+  }
+  const recSize = off * 2;
+  if (!recSize) throw new Error("empty EDF records");
+  let nRec = +str(236, 8);
+  const fit = Math.floor((buf.byteLength - hdrBytes) / recSize);
+  if (!(nRec > 0) || nRec > fit) nRec = fit;
+  const i16 = (hdrBytes % 2 === 0) ? new Int16Array(buf, 0, (hdrBytes + nRec * recSize) >> 1) : null;
+  const dv = i16 ? null : new DataView(buf);
+  const out = {};
+  for (const s of sigs) {
+    if (want && !want(s.label)) continue;
+    const gain = (s.dmax - s.dmin) ? (s.pmax - s.pmin) / (s.dmax - s.dmin) : 1;
+    const a = new Float32Array(nRec * s.spr);
+    const c = s.pmin - s.dmin * gain, spr = s.spr;
+    for (let r = 0; r < nRec; r++) {
+      const p = hdrBytes + r * recSize + s.off * 2, o = r * spr;
+      if (i16) { const q = p >> 1; for (let k = 0; k < spr; k++) a[o + k] = i16[q + k] * gain + c; }
+      else for (let k = 0; k < spr; k++) a[o + k] = dv.getInt16(p + k * 2, true) * gain + c;
+    }
+    out[s.label] = { data: a, dt: recDur / s.spr };
+  }
+  return { startMs, sig: out };
+}
+
+function nightKey(startMs) { return new Date(startMs - 12 * 3600e3).toISOString().slice(0, 10); }
+
+/* One PLD session -> { startMs, dt, ps } or null when it is not bilevel data. */
+function pldSession(buf) {
+  const e = edfParse(buf, l => /^(Press|EprPress)\.2s$/i.test(l));
+  const key = n => Object.keys(e.sig).find(l => l.toLowerCase() === n);
+  const ip = e.sig[key("press.2s")], ep = e.sig[key("eprpress.2s")];
+  if (!ip || !ep) return null;
+  const n = Math.min(ip.data.length, ep.data.length), ps = new Float32Array(n);
+  let good = 0;
+  for (let i = 0; i < n; i++) {
+    const a = ip.data[i], b = ep.data[i];
+    if (a > 1 && b > 1 && a - b > -0.5 && a < 45) { ps[i] = Math.max(0, a - b); good++; } else ps[i] = NaN;
+  }
+  return good ? { startMs: e.startMs, dt: ip.dt, ps } : null;
+}
+
+/* STR.edf -> { "YYYY-MM-DD": {minPS, maxPS, epap} } */
+function strSettings(buf) {
+  const e = edfParse(buf, l => /^(Date|S\.Mode|Mode|S\.A[VA]\..*)$/i.test(l));
+  const get = re => { const k = Object.keys(e.sig).find(l => re.test(l)); return k ? e.sig[k].data : null; };
+  const date = get(/^Date$/i);
+  if (!date) return {};
+  const fam = p => ({
+    min: get(new RegExp("^S\\." + p + "\\.MinPS$", "i")), max: get(new RegExp("^S\\." + p + "\\.MaxPS$", "i")),
+    epap: get(new RegExp("^S\\." + p + "\\.(EPAP|MinEPAP)$", "i"))
+  });
+  const av = fam("AV"), aa = fam("AA"), mode = get(/^(S\.)?Mode$/i), out = {};
+  for (let i = 0; i < date.length; i++) {
+    const day = Math.round(date[i]);
+    if (!(day > 10000)) continue;
+    let f = null;
+    const m = mode ? Math.round(mode[i]) : -1;
+    if (m === 7 && av.max) f = av; else if (m === 8 && aa.max) f = aa;
+    else if (av.max && av.max[i] > 0) f = av; else if (aa.max && aa.max[i] > 0) f = aa;
+    if (!f || !f.min || !(f.max[i] > 0) || !(f.max[i] >= f.min[i])) continue;
+    const r1 = v => Math.round(v * 10) / 10;
+    out[new Date(day * 864e5).toISOString().slice(0, 10)] = { minPS: r1(f.min[i]), maxPS: r1(f.max[i]), epap: f.epap ? r1(f.epap[i]) : null };
+  }
+  return out;
+}
+
+/* Low and high quantiles in one O(n) pass: 0.02 cmH2O bins over 0-40. */
+function quantiles(ps, qLo, qHi) {
+  const B = 2001, hist = new Uint32Array(B);
+  let n = 0;
+  for (let i = 0; i < ps.length; i++) { const v = ps[i]; if (v === v) { hist[Math.min(B - 1, Math.max(0, Math.round(v * 50)))]++; n++; } }
+  if (!n) return [NaN, NaN];
+  const find = q => { const t = Math.min(n - 1, Math.floor(q * n)); let c = 0; for (let k = 0; k < B; k++) { c += hist[k]; if (c > t) return k / 50; } return (B - 1) / 50; };
+  return [find(qLo), find(qHi)];
+}
+
+/* ps: Float32Array with NaN between sessions. */
+function nightMetrics(ps, dt, minPS, maxPS, tol) {
+  let n = 0, fl = 0, ce = 0, travel = 0, pairs = 0, runs = 0, moving = 0, lastSign = 0;
+  for (let i = 0; i < ps.length; i++) {
+    const v = ps[i];
+    if (v !== v) { lastSign = 0; continue; }
+    n++;
+    if (v <= minPS + tol) fl++;
+    if (v >= maxPS - tol) ce++;
+    const p = i ? ps[i - 1] : NaN;
+    if (p === p) {
+      const dlt = v - p; pairs++; travel += Math.abs(dlt);
+      if (Math.abs(dlt) > 0.02) {
+        const s = dlt > 0 ? 1 : -1; moving++;
+        if (s !== lastSign) { runs++; lastSign = s; }
+      }
+    }
+  }
+  return {
+    hours: n * dt / 3600,
+    floorPct: n ? 100 * fl / n : 0,
+    ceilPct: n ? 100 * ce / n : 0,
+    travel: pairs ? travel / (pairs * dt) * 60 : 0,
+    runSec: runs ? moving * dt / runs : 0
+  };
+}
+
+/* Fixed-PS session (bilevel, CPAP, or EPR only): PS spread under 0.3 cmH2O between its 1st and 99th percentiles. */
+function isStatic(ps) { const [lo, hi] = quantiles(ps, 0.01, 0.99); return !(hi - lo >= 0.3); }
+
+/* Group sessions into nights. Reuses night objects from prev when their sessions are unchanged. */
+function buildNights(sessions, prev) {
+  const by = {}, old = {};
+  for (const s of sessions) (by[nightKey(s.startMs)] ||= []).push(s);
+  for (const n of prev || []) old[n.date] = n;
+  return Object.keys(by).sort().map(date => {
+    const ss = by[date].sort((a, b) => a.startMs - b.startMs), sig = ss.map(s => s.startMs).join(",");
+    if (old[date] && old[date].sig === sig) return old[date];
+    const len = ss.reduce((a, s) => a + s.ps.length + 1, 0), ps = new Float32Array(len);
+    let o = 0;
+    for (const s of ss) { ps.set(s.ps, o); o += s.ps.length; ps[o++] = NaN; }
+    return { date, dt: ss[0].dt, ps, sig };
+  });
+}
+
+/* Invented nights so the page opens in a working state. */
+function demoNights(endMs) {
+  let seed = 20240713;
+  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const eras = [
+    { n: 50, min: 1.4, max: 9.6, kind: "pump" },
+    { n: 34, min: 1.4, max: 7.6, kind: "calm" },
+    { n: 7, min: 3.6, max: 7.6, kind: "bounce" },
+    { n: 6, min: 1.4, max: 2.6, kind: "narrow" },
+    { n: 28, min: 1.4, max: 7.2, kind: "calm" }
+  ];
+  const total = eras.reduce((a, e) => a + e.n, 0), out = [], settings = {};
+  let idx = 0;
+  for (const era of eras) for (let k = 0; k < era.n; k++, idx++) {
+    const date = new Date(endMs - (total - idx) * 864e5).toISOString().slice(0, 10);
+    const N = Math.round((6 + rnd() * 2) * 1800), ps = new Float32Array(N), range = era.max - era.min;
+    let cur = era.min, env = rnd(), ph = rnd() * 6.28;
+    const mood = 0.6 + rnd() * 0.8;
+    for (let i = 0; i < N; i++) {
+      if (i % 150 === 0) env = Math.min(1, Math.max(0, env + (rnd() - 0.5) * 0.7));
+      ph += 6.283 * 2 / (42 + (rnd() - 0.5) * 4);
+      let tgt;
+      if (era.kind === "pump") tgt = era.min + range * (0.42 + 0.1 * mood) * (0.35 + 0.65 * env) * (1 + Math.sin(ph));
+      else if (era.kind === "calm") tgt = era.min + Math.max(0, 1.5 * mood * env * (0.4 + Math.sin(ph)) - 0.35);
+      else if (era.kind === "bounce") tgt = Math.sin(ph) > 0.15 - 0.3 * env ? era.max + 1 : era.min - 1;
+      else tgt = era.min + 2.4 * mood * (0.25 + 0.75 * env) * (0.8 + Math.sin(ph)) - 0.4;
+      tgt += (rnd() - 0.5) * 0.15;
+      const step = Math.max(-1.1, Math.min(1.1, tgt - cur));
+      cur = Math.max(era.min, Math.min(era.max, cur + step));
+      ps[i] = Math.round(cur * 50) / 50;
+    }
+    out.push({ date, dt: 2, ps });
+    settings[date] = { minPS: era.min, maxPS: era.max, epap: 5.4 };
+  }
+  return { nights: out, settings };
+}
+</script>
+<script>
+/* ---------- App ---------- */
+const $ = id => document.getElementById(id);
+const state = { nights: [], settings: {}, rows: [], sel: 0, demo: true, timer: null, mode: "density", baseline: 0, eras: [], marks: loadMarks() };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d) : "n/a";
+
+function compute() {
+  const tol = +$("tol").value || 0, minH = +$("minHours").value || 0;
+  const uMin = parseFloat($("minPS").value), uMax = parseFloat($("maxPS").value);
+  const ns = state.nights, W = 7;
+  for (const n of ns) if (n.hi === undefined) [n.lo, n.hi] = quantiles(n.ps, 0.005, 0.999);
+  const rows = [];
+  let prev = null;
+  for (let i = 0; i < ns.length; i++) {
+    const n = ns[i], s = state.settings[n.date];
+    let near = n.hi;
+    for (let k = Math.max(0, i - W); k <= Math.min(ns.length - 1, i + W); k++) if (ns[k].hi > near) near = ns[k].hi;
+    const minPS = s ? s.minPS : (Number.isFinite(uMin) ? uMin : n.lo);
+    const maxPS = s ? s.maxPS : (Number.isFinite(uMax) ? uMax : near);
+    const mk = minPS + "|" + maxPS + "|" + tol;
+    if (n.mk !== mk) { n.m = nightMetrics(n.ps, n.dt, minPS, maxPS, tol); n.mk = mk; }
+    const m = n.m;
+    if (m.hours < minH) continue;
+    const tag = s ? `PS ${fmt(s.minPS)}–${fmt(s.maxPS)}` + (s.epap != null ? `, EPAP ${fmt(s.epap)}` : "") : null;
+    rows.push({ ...m, night: n, minPS, maxPS, src: s ? "STR.edf" : (Number.isFinite(uMin) || Number.isFinite(uMax) ? "typed" : "observed"), tag, changed: !!(tag && prev && tag !== prev) });
+    if (tag) prev = tag;
+  }
+  state.rows = rows;
+  state.sel = Math.min(state.sel, Math.max(0, rows.length - 1));
+  $("night").max = Math.max(0, rows.length - 1);
+  $("night").value = state.sel;
+}
+
+/* ---------- Track: nights as slices along a long, fixed-camera track ---------- */
+const tun = { pos: 0, target: 0, raf: 0, cache: new Map(), key: "", Pmax: 10, Smax: 0.6 };
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* 99.5th percentile of |slew| for one night, cached on the night. */
+function slewQ(n) {
+  if (n.sq !== undefined) return n.sq;
+  const B = 501, hist = new Uint32Array(B), ps = n.ps;
+  let c = 0;
+  for (let i = 1; i < ps.length; i++) { const a = ps[i - 1], b = ps[i]; if (a === a && b === b) { hist[Math.min(B - 1, Math.round(Math.abs(b - a) / n.dt * 100))]++; c++; } }
+  const t = Math.floor(0.995 * c);
+  let acc = 0, k = 0;
+  for (; k < B; k++) { acc += hist[k]; if (acc > t) break; }
+  return (n.sq = c ? k / 100 : 0);
+}
+
+function rgbOf(c) {
+  const d = document.createElement("canvas").getContext("2d");
+  d.fillStyle = c; const h = d.fillStyle;
+  if (h[0] === "#") return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  return (h.match(/\d+/g) || [0, 0, 0]).slice(0, 3).map(Number);
+}
+
+function tunnelRanges() {
+  let P = 3, S = 0.2;
+  for (const r of state.rows) { if (r.maxPS > P) P = r.maxPS; const q = slewQ(r.night); if (q > S) S = q; }
+  tun.Pmax = Math.ceil(P + 0.6); tun.Smax = Math.ceil(S * 1.1 * 10) / 10;
+  tun.gridKey = tun.Pmax + "|" + tun.Smax;
+  const key = tun.gridKey + "|" + css("--accent") + css("--ink") + css("--less");
+  if (key !== tun.key) { tun.cache.clear(); tun.key = key; }
+}
+
+/* One night's PS-vs-slew density as a small image, cached (LRU). */
+const NX = 72, NY = 44;
+/* One night's smoothed PS-vs-slew density, normalized to sum 1. Cached on the night. */
+function nightGrid(n) {
+  if (n.gk === tun.gridKey) return n.g;
+  const ps = n.ps, dt = n.dt, P = tun.Pmax, S = tun.Smax;
+  const d = new Float32Array(NX * NY);
+  let tot = 0;
+  for (let i = 1; i < ps.length; i++) {
+    const a = ps[i - 1], b = ps[i];
+    if (a !== a || b !== b) continue;
+    const x = Math.min(NX - 1, Math.max(0, Math.floor(b / P * NX)));
+    const y = Math.min(NY - 1, Math.max(0, Math.floor((1 - ((b - a) / dt + S) / (2 * S)) * NY)));
+    d[y * NX + x]++; tot++;
+  }
+  const K = [1, 4, 6, 4, 1], t = new Float32Array(NX * NY);
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) { let s = 0, w = 0; for (let k = -2; k <= 2; k++) { const xx = x + k; if (xx >= 0 && xx < NX) { s += d[y * NX + xx] * K[k + 2]; w += K[k + 2]; } } t[y * NX + x] = s / w; }
+  let sum = 0;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) { let s = 0, w = 0; for (let k = -2; k <= 2; k++) { const yy = y + k; if (yy >= 0 && yy < NY) { s += t[yy * NX + x] * K[k + 2]; w += K[k + 2]; } } d[y * NX + x] = s / w; sum += d[y * NX + x]; }
+  if (sum) for (let k = 0; k < d.length; k++) d[k] /= sum;
+  n.g = d; n.gk = tun.gridKey;
+  return d;
+}
+
+/* Kite: four corners summarizing a night. Left/right = PS 10th/90th percentile at zero slew.
+   Top/bottom = 90th percentile rising/falling slew, placed at the mean PS while rising/falling. */
+function nightKite(n) {
+  if (n.kite) return n.kite;
+  const ps = n.ps, dt = n.dt, B = 501, up = new Uint32Array(B), dn = new Uint32Array(B);
+  let nu = 0, nd = 0, su = 0, sd = 0;
+  for (let i = 1; i < ps.length; i++) {
+    const a = ps[i - 1], b = ps[i];
+    if (a !== a || b !== b) continue;
+    const s = (b - a) / dt;
+    if (s > 0.005) { up[Math.min(B - 1, Math.round(s * 100))]++; nu++; su += (a + b) / 2; }
+    else if (s < -0.005) { dn[Math.min(B - 1, Math.round(-s * 100))]++; nd++; sd += (a + b) / 2; }
+  }
+  const q = (hist, n, f) => { if (!n) return 0; const t = Math.floor(f * n); let c = 0; for (let k = 0; k < B; k++) { c += hist[k]; if (c > t) return k / 100; } return (B - 1) / 100; };
+  const [p10, p90] = quantiles(ps, 0.1, 0.9);
+  const mid = (p10 + p90) / 2;
+  return (n.kite = { L: p10, R: p90, Tx: nu ? su / nu : mid, Ty: q(up, nu, 0.9), Bx: nd ? sd / nd : mid, By: -q(dn, nd, 0.9) });
+}
+function eraKite(e) {
+  const k = { L: 0, R: 0, Tx: 0, Ty: 0, Bx: 0, By: 0 };
+  for (const r of e.rows) { const n = nightKite(r.night); for (const f in k) k[f] += n[f]; }
+  if (e.rows.length) for (const f in k) k[f] /= e.rows.length;
+  return k;
+}
+/* Draw a kite inside a slice rectangle (x0, y0, w, hh). */
+function drawKite(ctx, k, x0, y0, w, hh, style) {
+  const P = tun.Pmax, S = tun.Smax;
+  const X = v => x0 + v / P * w, Y = s => y0 + (1 - (Math.max(-S, Math.min(S, s)) + S) / (2 * S)) * hh;
+  ctx.beginPath();
+  ctx.moveTo(X(k.L), Y(0)); ctx.lineTo(X(k.Tx), Y(k.Ty)); ctx.lineTo(X(k.R), Y(0)); ctx.lineTo(X(k.Bx), Y(k.By)); ctx.closePath();
+  if (style.fill) { ctx.fillStyle = style.fill; ctx.globalAlpha = style.fillAlpha; ctx.fill(); }
+  ctx.globalAlpha = style.alpha; ctx.strokeStyle = style.stroke; ctx.lineWidth = style.width;
+  if (style.dash) ctx.setLineDash(style.dash);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+/* Pooled grid for an era: the average of its nights' grids. */
+function eraGrid(e) {
+  if (e.gk === tun.gridKey) return e.g;
+  const g = new Float32Array(NX * NY);
+  for (const r of e.rows) { const ng = nightGrid(r.night); for (let k = 0; k < g.length; k++) g[k] += ng[k]; }
+  if (e.rows.length) for (let k = 0; k < g.length; k++) g[k] /= e.rows.length;
+  e.g = g; e.gk = tun.gridKey;
+  return g;
+}
+
+/* Grid -> small image. Density mode: log shading. Difference mode: teal above baseline, violet below. */
+function gridImage(g, diff) {
+  const cv = document.createElement("canvas"); cv.width = NX; cv.height = NY;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(NX, NY);
+  const A = rgbOf(css("--accent")), I = rgbOf(css("--ink")), V = rgbOf(css("--less"));
+  if (diff) {
+    const base = diff;
+    let bmax = 0; for (const v of base) if (v > bmax) bmax = v;
+    const s = (bmax || 1) / +$("contrast").value;
+    for (let k = 0; k < g.length; k++) {
+      const v = Math.max(-1, Math.min(1, (g[k] - base[k]) / s));
+      if (Math.abs(v) < 0.04) continue;
+      const c = v > 0 ? A : V;
+      img.data[k * 4] = c[0]; img.data[k * 4 + 1] = c[1]; img.data[k * 4 + 2] = c[2];
+      img.data[k * 4 + 3] = Math.round(255 * Math.pow(Math.abs(v), 0.6));
+    }
+  } else {
+    let max = 0; for (const v of g) if (v > max) max = v;
+    const Kc = 20000, L = Math.log1p(max * Kc || 1);
+    for (let k = 0; k < g.length; k++) {
+      const v = Math.log1p(g[k] * Kc) / L;
+      if (v < 0.12) continue;
+      const m = Math.max(0, (v - 0.55) / 0.45) * 0.55;
+      img.data[k * 4] = A[0] + (I[0] - A[0]) * m; img.data[k * 4 + 1] = A[1] + (I[1] - A[1]) * m; img.data[k * 4 + 2] = A[2] + (I[2] - A[2]) * m;
+      img.data[k * 4 + 3] = Math.round(255 * Math.min(1, 0.15 + 0.95 * Math.pow((v - 0.12) / 0.88, 0.9)));
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+
+function baseGrid() {
+  if (state.mode !== "diff") return null;
+  const e = state.eras[state.baseline] || state.eras[0];
+  return e && e.rows.length ? eraGrid(e) : null;
+}
+
+function sliceImage(r) {
+  const n = r.night, hit = tun.cache.get(n);
+  if (hit) { tun.cache.delete(n); tun.cache.set(n, hit); return hit; }
+  const cv = gridImage(nightGrid(n), baseGrid());
+  tun.cache.set(n, cv);
+  if (tun.cache.size > 120) tun.cache.delete(tun.cache.keys().next().value);
+  return cv;
+}
+
+/* ---------- Marks and eras ---------- */
+function loadMarks() { try { return JSON.parse(localStorage.getItem("headroom.marks") || "[]"); } catch (e) { return []; } }
+function saveMarks() { try { localStorage.setItem("headroom.marks", JSON.stringify(state.marks)); } catch (e) {} }
+
+function buildEras() {
+  const marks = [...state.marks].sort((a, b) => a.date < b.date ? -1 : 1);
+  const eras = [{ label: "Start", date: "", rows: [] }, ...marks.map(m => ({ label: m.label || m.date, date: m.date, rows: [] }))];
+  for (const r of state.rows) {
+    r.mark = null;
+    let k = 0; for (let j = 1; j < eras.length; j++) if (r.night.date >= eras[j].date) k = j;
+    if (k && !eras[k].rows.length) r.mark = eras[k].label;
+    r.era = k; eras[k].rows.push(r);
+  }
+  state.eras = eras.filter((e, i) => i === 0 ? e.rows.length : true);
+  const sel = $("baseline"), keep = sel.value;
+  sel.innerHTML = state.eras.map((e, i) => `<option value="${i}">${esc(e.label)} (${e.rows.length} nights)</option>`).join("");
+  if (keep && +keep < state.eras.length) sel.value = keep;
+  state.baseline = +sel.value || 0;
+  renderMarks();
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderMarks() {
+  const ul = $("marks");
+  if (!state.marks.length) { ul.innerHTML = `<li class="sub">No marks yet. Move to the first night of a change and press Mark this night.</li>`; return; }
+  ul.innerHTML = [...state.marks].sort((a, b) => a.date < b.date ? -1 : 1).map(m =>
+    `<li><span>${m.date}</span><input type="text" aria-label="Label for ${m.date}" data-date="${m.date}" value="${esc(m.label)}"><button type="button" data-del="${m.date}">Remove</button></li>`).join("");
+}
+
+function marksChanged() { saveMarks(); buildEras(); invalidate(); drawEras(); drawNight(); }
+function invalidate() { tun.cache.clear(); drawRoom(); }
+
+/* ---------- Era strip ---------- */
+function drawEras() {
+  const cv = $("eras"), eras = state.eras || [];
+  if (!state.rows.length) { cv.hidden = true; return; }
+  cv.hidden = false;
+  const dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (!W) return;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext("2d"), ink = css("--ink"), muted = css("--muted"), line = css("--line"), mark = css("--mark");
+  ctx.clearRect(0, 0, W, H);
+  const gap = 14 * dpr, n = Math.max(1, eras.length), top = 40 * dpr, bottom = 8 * dpr;
+  let tw = Math.min((W - gap * (n - 1)) / n, 340 * dpr), th = tw * 0.61;
+  if (th > H - top - bottom) { th = H - top - bottom; tw = th / 0.61; }
+  const base = baseGrid();
+  state.eraBoxes = [];
+  eras.forEach((e, i) => {
+    const x = i * (tw + gap), y = top;
+    ctx.globalAlpha = 1;
+    const isBase = state.mode === "diff" && i === state.baseline;
+    ctx.imageSmoothingEnabled = true;
+    if (e.rows.length) ctx.drawImage(gridImage(eraGrid(e), isBase ? null : base), x, y, tw, th);
+    ctx.strokeStyle = isBase ? ink : line; ctx.lineWidth = (isBase ? 2 : 1) * dpr; ctx.strokeRect(x, y, tw, th);
+    if (e.rows.length) {
+      const med = k => { const v = e.rows.map(r => r[k]).sort((a, b) => a - b); return v[v.length >> 1]; };
+      ctx.strokeStyle = mark; ctx.lineWidth = 1.5 * dpr;
+      for (const v of [med("minPS"), med("maxPS")]) { const xx = x + v / tun.Pmax * tw; ctx.beginPath(); ctx.moveTo(xx, y); ctx.lineTo(xx, y + th); ctx.stroke(); }
+    }
+    if ($("kiteOn").checked && e.rows.length) {
+      const be = state.mode === "diff" && !isBase && state.eras[state.baseline];
+      if (be && be.rows.length) drawKite(ctx, eraKite(be), x, y, tw, th, { stroke: muted, alpha: 0.9, width: 1.5 * dpr, dash: [5 * dpr, 4 * dpr] });
+      drawKite(ctx, eraKite(e), x, y, tw, th, { stroke: ink, alpha: 1, width: 2 * dpr, fill: ink, fillAlpha: 0.06 });
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = ink; ctx.font = `600 ${12 * dpr}px "IBM Plex Mono", monospace`; ctx.textAlign = "left";
+    ctx.fillText(e.label + (isBase ? "  (baseline)" : ""), x, y - 20 * dpr, tw);
+    ctx.fillStyle = muted; ctx.font = `${10.5 * dpr}px "IBM Plex Mono", monospace`;
+    const r0 = e.rows[0], r1 = e.rows[e.rows.length - 1];
+    ctx.fillText(e.rows.length ? `${r0.night.date} to ${r1.night.date}, ${e.rows.length} nights` : "no nights", x, y - 6 * dpr, tw);
+    state.eraBoxes.push({ x: x / dpr, w: tw / dpr, i });
+  });
+}
+
+const AHEAD = 48, BEHIND = 2;
+function drawTunnel() {
+  const cv = $("tunnel"), rows = state.rows;
+  cv.hidden = !rows.length; $("empty").hidden = !!rows.length;
+  if (!rows.length) return;
+  const dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
+  if (!W || !H) return;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext("2d"), ink = css("--ink"), muted = css("--muted"), line = css("--line"), mark = css("--mark"), bg = css("--bg");
+  ctx.globalAlpha = 1; ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Fixed oblique camera: the track recedes up and to the right.
+  const w0 = Math.min(W * 0.5, H * 0.95), h0 = Math.min(w0 * 0.5, H * 0.4);
+  const ox = W * 0.11, oy = H * 0.86, stepX = (W * 0.36) / AHEAD, stepY = (H * 0.46) / AHEAD;
+  const P = tun.Pmax, pos = tun.pos;
+  const first = Math.max(0, Math.floor(pos - BEHIND)), last = Math.min(rows.length - 1, Math.ceil(pos + AHEAD));
+  const geo = [];
+  for (let i = first; i <= last; i++) {
+    const z = i - pos;
+    if (z < -BEHIND || z > AHEAD) continue;
+    const s = 1 / (1 + Math.max(z, -1) * 0.02), w = w0 * s, hh = h0 * s;
+    const x0 = ox + z * stepX, yb = oy - z * stepY, y0 = yb - hh;
+    const fade = z >= 0 ? Math.pow(1 - z / AHEAD, 1.3) : Math.max(0, 1 + z / BEHIND);
+    const r = rows[i];
+    geo.push({ i, z, s, w, hh, x0, y0, yb, fade, r, xf: x0 + r.minPS / P * w, xc: x0 + r.maxPS / P * w });
+  }
+  geo.sort((p, q) => q.z - p.z);   // far to near
+
+  // Track floor: the strip under the slices
+  if (geo.length > 1) {
+    const near = geo[geo.length - 1], far = geo[0];
+    ctx.globalAlpha = 0.35; ctx.fillStyle = line;
+    ctx.beginPath(); ctx.moveTo(near.x0, near.yb); ctx.lineTo(near.x0 + near.w, near.yb); ctx.lineTo(far.x0 + far.w, far.yb); ctx.lineTo(far.x0, far.yb); ctx.closePath(); ctx.fill();
+  }
+
+  const byI = new Map(geo.map(g => [g.i, g]));
+  const frontI = Math.max(0, Math.min(rows.length - 1, Math.round(pos)));
+  for (const g of geo) {
+    const cur = g.i === frontI, prev = byI.get(g.i - 1);
+    const la = Math.max(0, Math.min(1, (g.z - 2) / 2)) * g.fade;   // labels fade in with distance instead of popping
+    // Rails run from this slice to the nearer one: floor and ceiling, top and bottom edges
+    if (prev) {
+      ctx.globalAlpha = 0.9 * g.fade; ctx.strokeStyle = mark; ctx.lineWidth = 1.4 * dpr;
+      for (const [ax, bx] of [[g.xf, prev.xf], [g.xc, prev.xc]]) for (const t of [0, 1]) {
+        ctx.beginPath(); ctx.moveTo(ax, g.y0 + t * g.hh); ctx.lineTo(bx, prev.y0 + t * prev.hh); ctx.stroke();
+      }
+    }
+    // The slice itself
+    if (cur) { ctx.globalAlpha = 0.88; ctx.fillStyle = bg; ctx.fillRect(g.x0, g.y0, g.w, g.hh); }
+    ctx.globalAlpha = (cur ? 1 : 0.32) * g.fade;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(sliceImage(g.r), g.x0, g.y0, g.w, g.hh);
+    ctx.globalAlpha = (cur ? 1 : 0.4) * g.fade;
+    ctx.strokeStyle = cur ? ink : line; ctx.lineWidth = (cur ? 1.5 : 1) * dpr;
+    ctx.strokeRect(g.x0, g.y0, g.w, g.hh);
+    if (cur) {
+      ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.strokeStyle = line;
+      ctx.beginPath(); ctx.moveTo(g.x0, g.y0 + g.hh / 2); ctx.lineTo(g.x0 + g.w, g.y0 + g.hh / 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if ($("kiteOn").checked) {
+      const k = nightKite(g.r.night);
+      if (cur) {
+        const be = state.mode === "diff" && state.eras[state.baseline];
+        if (be && be.rows.length && g.r.era !== state.baseline) drawKite(ctx, eraKite(be), g.x0, g.y0, g.w, g.hh, { stroke: muted, alpha: 0.9, width: 1.5 * dpr, dash: [5 * dpr, 4 * dpr] });
+        drawKite(ctx, k, g.x0, g.y0, g.w, g.hh, { stroke: ink, alpha: 1, width: 2 * dpr, fill: ink, fillAlpha: 0.06 });
+      } else drawKite(ctx, k, g.x0, g.y0, g.w, g.hh, { stroke: ink, alpha: 0.3 * g.fade, width: dpr });
+    }
+    // Floor and ceiling on the slice, thicker for more time spent there
+    ctx.globalAlpha = (cur ? 1 : 0.8) * g.fade; ctx.strokeStyle = mark;
+    for (const [x, pct] of [[g.xf, g.r.floorPct], [g.xc, g.r.ceilPct]]) {
+      ctx.lineWidth = (1 + 7 * pct / 100) * dpr * g.s;
+      ctx.beginPath(); ctx.moveTo(x, g.y0); ctx.lineTo(x, g.y0 + g.hh); ctx.stroke();
+    }
+    if (g.r.mark) {
+      ctx.globalAlpha = Math.max(0.35, g.fade); ctx.strokeStyle = ink; ctx.lineWidth = 3 * dpr * Math.max(0.5, g.s);
+      ctx.strokeRect(g.x0 - 3 * dpr, g.y0 - 3 * dpr, g.w + 6 * dpr, g.hh + 6 * dpr);
+      if (la > 0.02) { ctx.globalAlpha = la; ctx.fillStyle = ink; ctx.font = `600 ${Math.max(10, 13 * g.s) * dpr}px "IBM Plex Mono", monospace`; ctx.textAlign = "left"; ctx.fillText(g.r.mark, g.x0, g.y0 - 8 * dpr * g.s); }
+    }
+    // Labels: settings changes always, dates weekly
+    const fs = Math.max(9, 11 * g.s) * dpr;
+    ctx.font = `500 ${fs}px "IBM Plex Mono", monospace`; ctx.textAlign = "left";
+    if (la <= 0.02) {}
+    else if (g.r.changed) { ctx.globalAlpha = la; ctx.fillStyle = mark; ctx.fillText(g.r.tag.split(",")[0], g.x0 + g.w + 6 * dpr, g.y0 + fs); }
+    else if (g.i % 7 === 0) { ctx.globalAlpha = 0.85 * la; ctx.fillStyle = muted; ctx.fillText(g.r.night.date, g.x0 + g.w + 6 * dpr, g.y0 + fs); }
+  }
+
+  // Axes and title on the current night's slice
+  const g = { x0: ox, w: w0, hh: h0, yb: oy, y0: oy - h0, i: frontI, r: rows[frontI] };
+  {
+    const f = 11 * dpr;
+    ctx.globalAlpha = 1; ctx.fillStyle = muted; ctx.font = `${f}px "IBM Plex Mono", monospace`;
+    ctx.textAlign = "center";
+    const step = P > 12 ? 2 : 1;
+    for (let v = 0; v <= P + 1e-6; v += step) ctx.fillText(String(v), g.x0 + v / P * g.w, g.yb + 14 * dpr);
+    ctx.fillText("PS, cmH₂O", g.x0 + g.w / 2, g.yb + 29 * dpr);
+    ctx.textAlign = "right";
+    for (const [v, y] of [[tun.Smax, g.y0], [0, g.y0 + g.hh / 2], [-tun.Smax, g.yb]]) ctx.fillText((v > 0 ? "+" : "") + v.toFixed(1), g.x0 - 6 * dpr, y + 4 * dpr);
+    ctx.save(); ctx.translate(g.x0 - 42 * dpr, g.y0 + g.hh / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("slew, cmH₂O/s", 0, 0); ctx.restore();
+    ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.font = `600 ${14 * dpr}px "IBM Plex Mono", monospace`;
+    ctx.fillText(g.r.night.date, g.x0, g.y0 - 9 * dpr);
+    const dx = ctx.measureText(g.r.night.date).width + 14 * dpr;
+    ctx.fillStyle = muted; ctx.font = `${f}px "IBM Plex Mono", monospace`;
+    const era = state.eras && state.eras[g.r.era];
+    ctx.fillText(`night ${g.i + 1} of ${rows.length}` + (era && era.date ? "  ·  " + era.label : "") + (g.r.tag ? "  ·  " + g.r.tag : ""), g.x0 + dx, g.y0 - 9 * dpr);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function animate() {
+  tun.raf = 0;
+  const d = tun.target - tun.pos;
+  if (reduceMotion || Math.abs(d) < 0.002) tun.pos = tun.target;
+  else tun.pos += d * 0.2;
+  drawTunnel();
+  if (tun.pos !== tun.target) tun.raf = requestAnimationFrame(animate);
+}
+function kick() { if (!tun.raf) tun.raf = requestAnimationFrame(animate); }
+function drawRoom(jump) {
+  if (state.rows.length) tunnelRanges();
+  tun.target = state.sel;
+  if (jump) tun.pos = tun.target;
+  kick();
+}
+
+function drawNight() {
+  const r = state.rows[state.sel];
+  if (!r) { $("tiles").innerHTML = ""; Plotly.purge("trace"); Plotly.purge("phase"); return; }
+  const tiles = [
+    ["Night of", r.night.date], ["Recorded", fmt(r.hours) + " h"], ["At floor", fmt(r.floorPct) + " %"],
+    ["At ceiling", fmt(r.ceilPct) + " %"], ["PS travel", fmt(r.travel, 2) + " /min"], ["Average one-way run", fmt(r.runSec) + " s"],
+    ["Rails, " + r.src, fmt(r.minPS) + "–" + fmt(r.maxPS)]
+  ];
+  const k = nightKite(r.night);
+  tiles.push(["Shape: PS spread", fmt(k.L) + "–" + fmt(k.R)], ["Shape: rise speed", fmt(k.Ty, 2) + " /s"], ["Shape: fall speed", fmt(-k.By, 2) + " /s"]);
+  $("tiles").innerHTML = tiles.map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  const ps = r.night.ps, dt = r.night.dt, ink = css("--ink"), muted = css("--muted"), line = css("--line"), accent = css("--accent"), mark = css("--mark"), panel = css("--panel");
+  const B = Math.max(1, Math.ceil(ps.length / 1500)), tx = [], ty = [];
+  for (let i = 0; i < ps.length; i += B) {
+    let lo = Infinity, hi = -Infinity;
+    for (let k = i; k < Math.min(ps.length, i + B); k++) { const v = ps[k]; if (v === v) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+    const h = i * dt / 3600;
+    if (hi === -Infinity) { tx.push(h); ty.push(null); } else { tx.push(h, h); ty.push(lo, hi); }
+  }
+  const S = Math.max(1, Math.ceil(ps.length / 5000)), px = [], py = [];
+  for (let i = 1; i < ps.length; i += S) { const a = ps[i - 1], b = ps[i]; if (a === a && b === b) { px.push(b); py.push((b - a) / dt); } }
+  const base = t => ({
+    paper_bgcolor: panel, plot_bgcolor: panel, margin: { l: 46, r: 10, t: 30, b: 40 }, showlegend: false,
+    font: { family: "Archivo, Arial, sans-serif", color: ink, size: 12 },
+    title: { text: t, font: { size: 13 }, x: 0.02, xanchor: "left" }
+  });
+  const a2 = t => ({ title: { text: t, font: { size: 11 } }, color: muted, gridcolor: line, zerolinecolor: line });
+  const rail = v => ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: v, y1: v, line: { color: mark, width: 1, dash: "dot" } });
+  const vrail = v => ({ type: "line", yref: "paper", y0: 0, y1: 1, x0: v, x1: v, line: { color: mark, width: 1, dash: "dot" } });
+  const cfg = { displayModeBar: false, responsive: true };
+  Plotly.react("trace", [{ type: "scattergl", mode: "lines", x: tx, y: ty, line: { color: accent, width: 1 }, hoverinfo: "skip" }],
+    { ...base("PS through the night"), xaxis: a2("Hours of recording"), yaxis: a2("PS, cmH₂O"), shapes: [rail(r.minPS), rail(r.maxPS)] }, cfg);
+  const kt = (k, style) => ({ type: "scatter", mode: "lines", x: [k.L, k.Tx, k.R, k.Bx, k.L], y: [0, k.Ty, 0, k.By, 0], line: style, hoverinfo: "skip" });
+  const phaseTraces = [{ type: "scattergl", mode: "markers", x: px, y: py, marker: { color: accent, size: 3, opacity: 0.25 }, hoverinfo: "skip" }];
+  if ($("kiteOn").checked) {
+    const be = state.mode === "diff" && state.eras[state.baseline];
+    if (be && be.rows.length && r.era !== state.baseline) phaseTraces.push(kt(eraKite(be), { color: muted, width: 1.5, dash: "dash" }));
+    phaseTraces.push({ ...kt(k, { color: ink, width: 2 }), fill: "toself", fillcolor: "rgba(127,127,127,0.08)" });
+  }
+  Plotly.react("phase", phaseTraces,
+    { ...base("Where PS was, and how fast it was moving"), xaxis: a2("PS, cmH₂O"), yaxis: a2("Slew, cmH₂O/s"), shapes: [vrail(r.minPS), vrail(r.maxPS)] }, cfg);
+}
+
+/* ---------- Exports ---------- */
+const CSV_HEAD = ["date", "era", "hours", "ps_min_rail", "ps_max_rail", "rail_source", "floor_pct", "ceiling_pct", "travel_cmh2o_per_min", "avg_one_way_run_s",
+  "shape_ps_p10", "shape_ps_p90", "shape_rise_ps", "shape_rise_speed", "shape_fall_ps", "shape_fall_speed"];
+function csvRow(r) {
+  const k = nightKite(r.night), e = state.eras[r.era];
+  const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  return [r.night.date, q(e ? e.label : ""), r.hours.toFixed(2), r.minPS.toFixed(2), r.maxPS.toFixed(2), r.src, r.floorPct.toFixed(2), r.ceilPct.toFixed(2),
+    r.travel.toFixed(3), r.runSec.toFixed(2), k.L.toFixed(2), k.R.toFixed(2), k.Tx.toFixed(2), k.Ty.toFixed(3), k.Bx.toFixed(2), (-k.By).toFixed(3)].join(",");
+}
+const csvAll = () => [CSV_HEAD.join(","), ...state.rows.map(csvRow)].join("\n") + "\n";
+
+/* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
+function nightCanvas(r) {
+  const W = 1400, H = 760, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d"), ink = css("--ink"), muted = css("--muted"), line = css("--line"), mark = css("--mark");
+  ctx.fillStyle = css("--panel"); ctx.fillRect(0, 0, W, H);
+  const x0 = 90, y0 = 110, w = 820, hh = 520, P = tun.Pmax, S = tun.Smax;
+  ctx.fillStyle = ink; ctx.font = `700 34px Archivo, Arial, sans-serif`; ctx.fillText("Headroom", 40, 56);
+  ctx.font = `600 22px "IBM Plex Mono", monospace`; ctx.fillText(r.night.date, 260, 56);
+  const e = state.eras[r.era];
+  ctx.fillStyle = muted; ctx.font = `16px "IBM Plex Mono", monospace`;
+  ctx.fillText((e && e.date ? e.label + "  ·  " : "") + (state.mode === "diff" ? "difference from baseline: " + state.eras[state.baseline].label : "density"), 260, 82);
+  ctx.fillStyle = css("--bg"); ctx.fillRect(x0, y0, w, hh);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(gridImage(nightGrid(r.night), baseGrid()), x0, y0, w, hh);
+  ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, w, hh);
+  ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(x0, y0 + hh / 2); ctx.lineTo(x0 + w, y0 + hh / 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = mark;
+  for (const [v, pct] of [[r.minPS, r.floorPct], [r.maxPS, r.ceilPct]]) { ctx.lineWidth = 1.5 + 7 * pct / 100; const x = x0 + v / P * w; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + hh); ctx.stroke(); }
+  if ($("kiteOn").checked) {
+    const be = state.mode === "diff" && state.eras[state.baseline];
+    if (be && be.rows.length && r.era !== state.baseline) drawKite(ctx, eraKite(be), x0, y0, w, hh, { stroke: muted, alpha: 0.9, width: 2, dash: [8, 6] });
+    drawKite(ctx, nightKite(r.night), x0, y0, w, hh, { stroke: ink, alpha: 1, width: 3, fill: ink, fillAlpha: 0.06 });
+  }
+  ctx.globalAlpha = 1; ctx.fillStyle = muted; ctx.font = `15px "IBM Plex Mono", monospace`; ctx.textAlign = "center";
+  for (let v = 0; v <= P; v += P > 12 ? 2 : 1) ctx.fillText(String(v), x0 + v / P * w, y0 + hh + 22);
+  ctx.fillText("PS, cmH₂O", x0 + w / 2, y0 + hh + 46);
+  ctx.textAlign = "right";
+  for (const [v, y] of [[S, y0], [0, y0 + hh / 2], [-S, y0 + hh]]) ctx.fillText((v > 0 ? "+" : "") + v.toFixed(1), x0 - 10, y + 5);
+  ctx.save(); ctx.translate(x0 - 62, y0 + hh / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("slew, cmH₂O/s", 0, 0); ctx.restore();
+  const k = nightKite(r.night), nums = [
+    ["Recorded", fmt(r.hours) + " h"], ["Rails (" + r.src + ")", fmt(r.minPS) + "–" + fmt(r.maxPS) + " cmH₂O"], ["At floor", fmt(r.floorPct) + " %"],
+    ["At ceiling", fmt(r.ceilPct) + " %"], ["PS travel", fmt(r.travel, 2) + " cmH₂O/min"], ["Average one-way run", fmt(r.runSec) + " s"],
+    ["Shape: PS spread", fmt(k.L) + "–" + fmt(k.R) + " cmH₂O"], ["Shape: rise speed", fmt(k.Ty, 2) + " cmH₂O/s at " + fmt(k.Tx)], ["Shape: fall speed", fmt(-k.By, 2) + " cmH₂O/s at " + fmt(k.Bx)]
+  ];
+  ctx.textAlign = "left";
+  nums.forEach(([a, b], i) => { const y = y0 + 10 + i * 56; ctx.fillStyle = muted; ctx.font = `15px Archivo, Arial, sans-serif`; ctx.fillText(a, 980, y); ctx.fillStyle = ink; ctx.font = `500 21px "IBM Plex Mono", monospace`; ctx.fillText(b, 980, y + 25); });
+  return cv;
+}
+
+const toBlob = cv => new Promise(res => cv.toBlob(res, "image/png"));
+async function save(filename, data) {
+  const dl = state.dl;
+  if (!dl) return;
+  try { await dl.save({ filename, data }); setStatus(`Saved ${filename}.`); }
+  catch (e) { if (e && e.code !== "declined") setStatus(`Could not save ${filename}: ${(e && e.message) || "unavailable here"}.`); }
+}
+
+function select(i) {
+  if (!(i >= 0) || i >= state.rows.length) return;
+  if (state.timer) {   // any manual move pauses playback
+    cancelAnimationFrame(state.timer); state.timer = null;
+    $("play").setAttribute("aria-pressed", false); $("play").textContent = "Play";
+  }
+  state.sel = i; $("night").value = i; drawRoom(); drawNight();
+}
+function refresh() { compute(); if (state.rows.length) tunnelRanges(); buildEras(); tun.cache.clear(); drawRoom(true); drawNight(); drawEras(); }
+function setStatus(t) { $("status").textContent = t; }
+/* busy(null) hides the bar; busy() shows it with no known end; busy(done, total) shows progress. */
+function busy(done, total) {
+  const p = $("prog");
+  if (done === null) { p.hidden = true; return; }
+  p.hidden = false;
+  if (total) { p.max = total; p.value = done; } else p.removeAttribute("value");
+}
+const paint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r)));
+
+function clearAll() {
+  if (state.timer) $("play").click();
+  state.nights = []; state.settings = {}; state.sessions = new Map(); state.demo = false; state.sel = 0;
+  $("demoBadge").hidden = true;
+  for (const id of ["minPS", "maxPS"]) $(id).value = "";
+  refresh();
+  setStatus("Cleared. Nothing loaded.");
+}
+
+function loadDemo() {
+  const d = demoNights(Date.UTC(2026, 10, 14));
+  state.nights = d.nights; state.settings = d.settings; state.demo = true; state.sessions = null; state.sel = d.nights.length - 1;
+  $("demoBadge").hidden = false;
+  refresh();
+  setStatus(`${state.rows.length} invented nights. Load your own SD card to replace them.`);
+}
+
+async function ingest(files) {
+  if (!files.length) { setStatus("The picker handed over no files."); return; }
+  let pld = files.filter(f => /PLD\.edf$/i.test(f.name)), str = files.filter(f => /STR\.edf$/i.test(f.name));
+  const sniff = !pld.length && !str.length;
+  if (sniff) pld = files.filter(f => f.size >= 512 && f.size < 8e6);
+  if (state.demo || !state.sessions) { state.sessions = new Map(); state.settings = {}; state.nights = []; }
+  let added = 0, dup = 0, noPS = 0, bad = 0, still = 0, strDays = 0, strNote = "";
+  const readStr = buf => { const s = strSettings(buf), k = Object.keys(s).length; Object.assign(state.settings, s); strDays += k; return k; };
+  setStatus(`Got ${files.length} files, ${pld.length} to read. Starting.`); busy(0, pld.length); await paint();
+  let next = 0, done = 0;
+  const t0 = performance.now();
+  const worker = async () => {
+    while (next < pld.length) {
+      const f = pld[next++];
+      let buf;
+      try { buf = await f.arrayBuffer(); } catch (e) { bad++; done++; continue; }
+      try {
+        const s = pldSession(buf);
+        if (s && isStatic(s.ps)) still++;
+        else if (s) { if (state.sessions.has(s.startMs)) dup++; else { state.sessions.set(s.startMs, s); added++; } }
+        else if (!(sniff && readStr(buf))) noPS++;
+      } catch (e) { bad++; }
+      if (++done % 10 === 0 || done === pld.length) { setStatus(`Reading files: ${done} of ${pld.length}`); busy(done, pld.length); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, pld.length) }, worker));
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  setStatus("Building nights."); busy(); await paint();
+  for (const f of str) {
+    try { if (!readStr(await f.arrayBuffer())) strNote = " STR.edf held no PS min and max that Headroom recognizes."; }
+    catch (e) { strNote = " STR.edf could not be read (" + e.message + ")."; }
+  }
+  if (!state.sessions.size) {
+    if (state.demo) { state.sessions = null; }
+    const names = files.slice(0, 3).map(f => `${f.name} (${f.size} bytes)`).join(", ");
+    busy(null);
+    setStatus(`No ASV sessions found in the ${files.length} files given. ${still} had fixed pressure support, ${bad} unreadable, ${noPS} without Press.2s and EprPress.2s. First files: ${names}.`);
+    return;
+  }
+  state.demo = false; $("demoBadge").hidden = true;
+  state.nights = buildNights([...state.sessions.values()], state.nights); state.sel = Infinity;
+  refresh();
+  busy(null);
+  const hidden = state.nights.length - state.rows.length;
+  setStatus(`Added ${added} sessions from ${pld.length} files in ${secs} s. Showing ${state.rows.length} nights.`
+    + (hidden ? ` ${hidden} shorter than ${$("minHours").value} h are hidden (see Rail settings).` : "")
+    + (strDays ? ` Settings read for ${strDays} days.` : " No STR.edf, so rails are estimated from the pressure data (override under Rail settings).") + strNote
+    + (still ? ` ${still} fixed-PS sessions (not ASV) skipped.` : "") + (dup ? ` ${dup} already loaded.` : "") + (noPS ? ` ${noPS} files had no PS.` : "") + (bad ? ` ${bad} were unreadable.` : ""));
+}
+
+async function fromDrop(dt) {
+  const out = [], walk = async entry => {
+    if (entry.isFile) { out.push(await new Promise((res, rej) => entry.file(res, rej))); if (out.length % 200 === 0) setStatus(`Listing dropped files: ${out.length} found so far`); }
+    else if (entry.isDirectory) {
+      const rd = entry.createReader();
+      for (;;) { const batch = await new Promise((res, rej) => rd.readEntries(res, rej)); if (!batch.length) break; for (const e of batch) await walk(e); }
+    }
+  };
+  const entries = [...dt.items].map(it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+  if (entries.length) { for (const e of entries) await walk(e); return out; }
+  return [...dt.files];
+}
+
+for (const id of ["pickDir", "pickFiles"]) {
+  const el = $(id);
+  el.addEventListener("click", () => { state.prevStatus = $("status").textContent; state.picking = true; });
+  el.addEventListener("cancel", () => { state.picking = false; busy(null); setStatus(state.prevStatus || ""); });
+  el.addEventListener("change", async e => {
+    state.picking = false;
+    const fs = [...e.target.files]; e.target.value = "";
+    if (!fs.length) { busy(null); setStatus(state.prevStatus || ""); return; }
+    await ingest(fs);
+  });
+}
+/* After the picker closes, the browser may spend a while listing a big folder before "change" fires. */
+window.addEventListener("focus", () => {
+  if (!state.picking) return;
+  setTimeout(() => { if (state.picking && $("prog").hidden) { setStatus("Files selected. Waiting for the browser to hand them over; a big folder can take a minute before reading starts."); busy(); } }, 300);
+});
+if (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches) $("dirBtn").hidden = true;
+$("demoBtn").addEventListener("click", loadDemo);
+$("clearBtn").addEventListener("click", clearAll);
+const drop = $("drop");
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", async e => { setStatus("Files dropped. Listing the folder before reading starts."); busy(); await paint(); ingest(await fromDrop(e.dataTransfer)); });
+["minPS", "maxPS", "tol", "minHours"].forEach(id => $(id).addEventListener("change", refresh));
+$("night").addEventListener("input", e => select(+e.target.value));
+$("prev").addEventListener("click", () => select(state.sel - 1));
+$("next").addEventListener("click", () => select(state.sel + 1));
+/* Playback moves the camera at a constant speed, frame by frame, instead of stepping and easing per night. */
+$("play").addEventListener("click", () => {
+  const on = !state.timer, last = state.rows.length - 1;
+  if (on && last < 1) return;
+  $("play").setAttribute("aria-pressed", on); $("play").textContent = on ? "Pause" : "Play";
+  if (!on) {
+    cancelAnimationFrame(state.timer); state.timer = null;
+    select(Math.max(0, Math.min(last, Math.round(tun.pos))));
+    return;
+  }
+  if (tun.raf) { cancelAnimationFrame(tun.raf); tun.raf = 0; }
+  if (state.sel >= last) { state.sel = 0; $("night").value = 0; drawNight(); }
+  tun.pos = tun.target = state.sel;   // start from rest, exactly on the current night
+  let prev = performance.now(), lastPanel = 0;
+  const step = now => {
+    const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+    tun.pos = Math.min(last, tun.pos + dt * +$("speed").value);
+    tun.target = tun.pos;
+    const i = Math.round(tun.pos);
+    if (i !== state.sel) {
+      state.sel = i; $("night").value = i;
+      if (now - lastPanel > 350) { drawNight(); lastPanel = now; }
+    }
+    drawTunnel();
+    if (tun.pos >= last) { state.timer = 1; $("play").click(); return; }
+    state.timer = requestAnimationFrame(step);
+  };
+  state.timer = requestAnimationFrame(step);
+});
+document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => {
+  state.mode = b.dataset.mode;
+  document.querySelectorAll("[data-mode]").forEach(o => o.setAttribute("aria-pressed", o === b));
+  $("legend").hidden = state.mode !== "diff";
+  invalidate(); drawEras(); drawNight();
+}));
+$("baseline").addEventListener("change", e => { state.baseline = +e.target.value; if (state.mode === "diff") { invalidate(); drawEras(); drawNight(); } });
+$("contrast").addEventListener("input", () => { if (state.mode === "diff") { invalidate(); drawEras(); } });
+$("kiteOn").addEventListener("change", () => { drawRoom(); drawEras(); drawNight(); });
+$("markBtn").addEventListener("click", () => {
+  const r = state.rows[state.sel]; if (!r) return;
+  if (!state.marks.some(m => m.date === r.night.date)) state.marks.push({ date: r.night.date, label: "Mark " + (state.marks.length + 1) });
+  marksChanged();
+  const inp = document.querySelector(`#marks input[data-date="${r.night.date}"]`); if (inp) { inp.focus(); inp.select(); }
+});
+$("marks").addEventListener("change", e => { const d = e.target.dataset.date; if (!d) return; const m = state.marks.find(m => m.date === d); if (m) { m.label = e.target.value.trim() || d; marksChanged(); } });
+$("marks").addEventListener("click", e => { const d = e.target.dataset.del; if (!d) return; state.marks = state.marks.filter(m => m.date !== d); marksChanged(); });
+$("eras").addEventListener("click", e => {
+  const x = e.clientX - $("eras").getBoundingClientRect().left;
+  const b = (state.eraBoxes || []).find(b => x >= b.x && x <= b.x + b.w);
+  if (b && state.eras[b.i].rows.length) select(state.rows.indexOf(state.eras[b.i].rows[0]));
+});
+new ResizeObserver(() => drawEras()).observe($("eras"));
+$("saveNightPng").addEventListener("click", async () => { const r = state.rows[state.sel]; if (r) save(`headroom-${r.night.date}.png`, await toBlob(nightCanvas(r))); });
+$("saveNightCsv").addEventListener("click", () => { const r = state.rows[state.sel]; if (r) save(`headroom-${r.night.date}.csv`, CSV_HEAD.join(",") + "\n" + csvRow(r) + "\n"); });
+$("saveAllCsv").addEventListener("click", () => { if (state.rows.length) save(`headroom-${state.rows[0].night.date}-to-${state.rows[state.rows.length - 1].night.date}.csv`, csvAll()); });
+$("saveErasPng").addEventListener("click", async () => { if (state.rows.length) save("headroom-eras.png", await toBlob($("eras"))); });
+$("copyAllCsv").addEventListener("click", async () => {
+  if (!state.rows.length) return;
+  try { await navigator.clipboard.writeText(csvAll()); setStatus(`Copied ${state.rows.length} nights as CSV.`); }
+  catch (e) { setStatus("This view would not allow copying to the clipboard."); }
+});
+/* File saves go through the page's downloads permission; the buttons appear only where it works. */
+/* Opened as a plain web page (not inside Claude): ordinary browser downloads work. */
+if (!window.claude) {
+  state.dl = { save: async ({ filename, data }) => {
+    const blob = data instanceof Blob ? data : new Blob([data]), a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    return { status: "saved" };
+  } };
+  document.querySelectorAll(".dl").forEach(b => b.hidden = false);
+  $("copyAllCsv").hidden = true;
+}
+if (window.claude && claude.use) claude.use("downloads").then(d => {
+  if (!d) return;
+  state.dl = d;
+  document.querySelectorAll(".dl").forEach(b => b.hidden = false);
+  $("copyAllCsv").hidden = true;
+}).catch(() => {});
+{
+  const cv = $("tunnel");
+  let acc = 0;
+  cv.addEventListener("wheel", e => {
+    if (!state.rows.length) return;
+    e.preventDefault();
+    acc += e.deltaY * (e.deltaMode === 1 ? 40 : 1);
+    const steps = Math.trunc(acc / 60);
+    if (steps) { acc -= steps * 60; select(Math.max(0, Math.min(state.rows.length - 1, state.sel + steps))); }
+  }, { passive: false });
+  let dragY = null, dragAcc = 0;
+  cv.addEventListener("pointerdown", e => { dragY = e.clientY; dragAcc = 0; cv.setPointerCapture(e.pointerId); cv.focus({ preventScroll: true }); });
+  cv.addEventListener("pointermove", e => {
+    if (dragY === null) return;
+    dragAcc += dragY - e.clientY; dragY = e.clientY;
+    const steps = Math.trunc(dragAcc / 28);
+    if (steps) { dragAcc -= steps * 28; select(Math.max(0, Math.min(state.rows.length - 1, state.sel + steps))); }
+  });
+  for (const t of ["pointerup", "pointercancel"]) cv.addEventListener(t, () => { dragY = null; });
+  cv.addEventListener("keydown", e => {
+    const k = { ArrowUp: 1, ArrowRight: 1, PageUp: 7, ArrowDown: -1, ArrowLeft: -1, PageDown: -7 }[e.key];
+    if (k) { e.preventDefault(); select(Math.max(0, Math.min(state.rows.length - 1, state.sel + k))); }
+    else if (e.key === "Home") { e.preventDefault(); select(0); }
+    else if (e.key === "End") { e.preventDefault(); select(state.rows.length - 1); }
+  });
+  new ResizeObserver(() => drawTunnel()).observe(cv);
+}
+const retheme = () => { tun.key = ""; if (state.rows.length) { drawRoom(true); drawNight(); drawEras(); } };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+if (window.Plotly) clearAll(), setStatus("Nothing loaded yet."); else setStatus("The plotting library did not load. Check the connection and reload.");
+</script>
+</body>
+</html>

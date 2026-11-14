@@ -33,6 +33,7 @@ links to these tools:
 - **Wub Event Reader** at `/wub-event-reader/`.
 - **BreathSong** at `/breathsong/`.
 - **[Return Set](https://wobble-analysis-tool.xyz/return-set/)** at `/return-set/` — ResMed-only nightly fractals, a pooled all-nights portrait, and PNG export. Source and method notes are in [`public/return-set/`](public/return-set/README.md); run `npm run test:return-set` for its parser, model, import and interaction checks.
+- **[Headroom](https://wobble-analysis-tool.xyz/headroom/)** at `/headroom/` — ResMed ASV only: each night's pressure support against slew as a slice on a time track, with rails, summary shapes, eras, a difference-from-baseline view, and PNG/CSV export. Source and caveats: [existentialblu/headroom](https://github.com/existentialblu/headroom).
 - **Legacy WAT v0.22** at `/v0.22/`.
 
 Each companion page includes a **Back to WAT** link. The old `/monk-wake/`
