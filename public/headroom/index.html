@@ -234,7 +234,7 @@ details summary { cursor: pointer; font-weight: 600; }
     <p>A four-corner summary of each night. Left and right are where PS usually sat low and high (its 10th and 90th percentiles). Top is how fast it typically climbed and bottom how fast it typically fell (90th percentiles of the rate of change), each placed at the average PS while climbing or falling. In the difference view, the dashed kite is the baseline era's.</p>
     <p>We call it a kite. Strictly it's a four-corner glyph; it only becomes a geometric kite on nights when rises and falls mirror each other, which makes the lopsidedness the interesting part.</p>
     <h3>Rise ÷ fall</h3>
-    <p>The kite's rise speed divided by its fall speed. Above 1, PS climbed faster than it backed off; below 1, it climbed more gently than it backed off. Whether one is better is an open question; early observations in one person suggest a value somewhat below 1 went with steadier nights.</p>
+    <p>The kite's rise speed divided by its fall speed. Above 1, PS climbed faster than it backed off; below 1, it climbed more gently than it backed off. In two years of one person's data on two ResMed machines, it stayed close to 0.9 through settings changes, a firmware change and a medication change, so it may mostly reflect the machine's algorithm rather than the person. Whether it differs between people or machines is an open question.</p>
     <h3>Common patterns</h3>
     <p>A calm night is a small smudge near the floor. Pumping stretches into a wide loop through the middle. Bouncing between the limits piles up dark columns on both orange lines.</p>
   </section>
@@ -978,7 +978,7 @@ ${eras || "- None marked."}
 - Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
 `;
 }
-const HEADROOM_VERSION = "v0.5.1";
+const HEADROOM_VERSION = "v0.5.2";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
