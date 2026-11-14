@@ -198,8 +198,10 @@ details summary { cursor: pointer; font-weight: 600; }
         <span class="sub" style="font-size:0.85rem">Each era pooled into one slice. Click one to jump there.</span>
         <button type="button" class="dl" id="saveErasPng" hidden>Save eras image</button>
         <button type="button" class="dl" id="saveAllCsv" hidden>Save all nights (CSV)</button>
+        <button type="button" class="dl" id="saveGrid" hidden>Save cloud grid (CSV)</button>
         <button type="button" class="dl" id="saveGuide" hidden>Save column guide (MD)</button>
         <button type="button" id="copyAllCsv">Copy all nights (CSV)</button>
+        <button type="button" id="copyGrid">Copy cloud grid (CSV)</button>
         <button type="button" id="copyGuide">Copy column guide</button>
       </div>
     </div>
@@ -526,6 +528,34 @@ function nightKite(n) {
   const [p10, p90] = quantiles(ps, 0.1, 0.9);
   const mid = (p10 + p90) / 2;
   return (n.kite = { L: p10, R: p90, Tx: nu ? su / nu : mid, Ty: q(up, nu, 0.9), Bx: nd ? sd / nd : mid, By: -q(dn, nd, 0.9) });
+}
+/* Cloud statistics on raw samples (not the smoothed picture). Fixed grid: PS in 0.5 cmH2O bins, slew in 0.1 cmH2O/s bins. */
+const GRID_PS = 0.5, GRID_S = 0.1;
+function nightCloud(n) {
+  if (n.cloud) return n.cloud;
+  const ps = n.ps, dt = n.dt, cells = new Map();
+  let c = 0, sp = 0, sp2 = 0, ss = 0, ss2 = 0, ss3 = 0, sps = 0, quiet = 0;
+  for (let i = 1; i < ps.length; i++) {
+    const a = ps[i - 1], b = ps[i];
+    if (a !== a || b !== b) continue;
+    const s = (b - a) / dt;
+    c++; sp += b; sp2 += b * b; ss += s; ss2 += s * s; ss3 += s * s * s; sps += b * s;
+    if (Math.abs(s) < 0.005) quiet++;
+    const key = Math.floor(b / GRID_PS) + "|" + Math.round(s / GRID_S);   // slew bins centred on zero
+    cells.set(key, (cells.get(key) || 0) + 1);
+  }
+  if (!c) return (n.cloud = { n: 0, cells });
+  const mp = sp / c, ms = ss / c, vp = Math.max(0, sp2 / c - mp * mp), vs = Math.max(0, ss2 / c - ms * ms);
+  const sdp = Math.sqrt(vp), sds = Math.sqrt(vs);
+  const m3 = ss3 / c - 3 * ms * ss2 / c + 2 * ms * ms * ms;
+  let H = 0; for (const v of cells.values()) { const p = v / c; H -= p * Math.log2(p); }
+  return (n.cloud = {
+    n: c, cells,
+    psMean: mp, psSd: sdp, slewSd: sds,
+    slewSkew: sds > 0 ? m3 / (sds * sds * sds) : 0,
+    corr: sdp > 0 && sds > 0 ? (sps / c - mp * ms) / (sdp * sds) : 0,
+    quietPct: 100 * quiet / c, entropy: H, cellsUsed: cells.size
+  });
 }
 const riseFall = k => (-k.By > 0 ? k.Ty / -k.By : NaN);
 function eraKite(e) {
@@ -868,7 +898,15 @@ const CSV_COLS = [
   ["kite_rise_speed_cmh2o_per_s", "Kite top corner height: 90th percentile of rising rate of change."],
   ["kite_fall_at_ps_cmh2o", "Kite bottom corner position: average PS while PS was falling."],
   ["kite_fall_speed_cmh2o_per_s", "Kite bottom corner depth: 90th percentile of falling rate of change, as a positive number."],
-  ["rise_fall_ratio", "kite_rise_speed divided by kite_fall_speed. Below 1: PS climbs more gently than it backs off. Blank if PS never fell."]
+  ["rise_fall_ratio", "kite_rise_speed divided by kite_fall_speed. Below 1: PS climbs more gently than it backs off. Blank if PS never fell."],
+  ["cloud_ps_mean_cmh2o", "Cloud: mean PS over the night."],
+  ["cloud_ps_sd_cmh2o", "Cloud: standard deviation of PS (how widely PS wandered)."],
+  ["cloud_slew_sd_cmh2o_per_s", "Cloud: standard deviation of the rate of change (how vigorously PS moved)."],
+  ["cloud_slew_skew", "Cloud: skewness of the rate of change. Negative: falls are sharper and rarer than rises (quick drops, gradual climbs); positive: the reverse."],
+  ["cloud_ps_slew_corr", "Cloud: correlation between PS and its rate of change. Negative: PS tends to be falling when high and rising when low."],
+  ["cloud_pct_still", "Cloud: percent of samples where PS did not move (|rate| below 0.005 cmH2O/s)."],
+  ["cloud_entropy_bits", "Cloud: Shannon entropy of the fixed grid (0.5 cmH2O x 0.1 cmH2O/s cells, slew bins centred on zero). Higher: the night spread over more of the plane."],
+  ["cloud_cells_used", "Cloud: number of fixed-grid cells the night visited."]
 ];
 const CSV_HEAD = CSV_COLS.map(c => c[0]);
 function csvRow(r) {
@@ -876,7 +914,23 @@ function csvRow(r) {
   const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   return [r.night.date, q(e ? e.label : ""), r.hours.toFixed(2), r.minPS.toFixed(2), r.maxPS.toFixed(2), r.src, r.floorPct.toFixed(2), r.ceilPct.toFixed(2),
     r.travel.toFixed(3), r.runSec.toFixed(2), k.L.toFixed(2), k.R.toFixed(2), k.Tx.toFixed(2), k.Ty.toFixed(3), k.Bx.toFixed(2), (-k.By).toFixed(3),
-    Number.isFinite(ratio) ? ratio.toFixed(3) : ""].join(",");
+    Number.isFinite(ratio) ? ratio.toFixed(3) : "",
+    ...(() => { const c = nightCloud(r.night); return c.n ? [c.psMean.toFixed(3), c.psSd.toFixed(3), c.slewSd.toFixed(4), c.slewSkew.toFixed(3), c.corr.toFixed(3), c.quietPct.toFixed(2), c.entropy.toFixed(3), c.cellsUsed] : ["", "", "", "", "", "", "", ""]; })()].join(",");
+}
+/* The cloud itself: one row per night per occupied cell of the fixed grid. */
+function csvGrid() {
+  const out = ["date,era,ps_bin_low_cmh2o,ps_bin_high_cmh2o,slew_bin_low_cmh2o_per_s,slew_bin_high_cmh2o_per_s,pct_of_night"];
+  const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  for (const r of state.rows) {
+    const c = nightCloud(r.night), e = state.eras[r.era], label = q(e ? e.label : "");
+    if (!c.n) continue;
+    const keys = [...c.cells.keys()].map(k => k.split("|").map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const [pi, si] of keys) {
+      const v = c.cells.get(pi + "|" + si);
+      out.push([r.night.date, label, (pi * GRID_PS).toFixed(1), ((pi + 1) * GRID_PS).toFixed(1), ((si - 0.5) * GRID_S).toFixed(2), ((si + 0.5) * GRID_S).toFixed(2), (100 * v / c.n).toFixed(3)].join(","));
+    }
+  }
+  return out.join("\n") + "\n";
 }
 const csvAll = () => [CSV_HEAD.join(","), ...state.rows.map(csvRow)].join("\n") + "\n";
 
@@ -891,6 +945,10 @@ Exported from Headroom ${HEADROOM_VERSION} (https://wobble-analysis-tool.xyz/hea
 
 ${CSV_COLS.map(([n, d]) => `- \`${n}\`: ${d}`).join("\n")}
 
+## The cloud grid file (headroom-cloud-grid-*.csv)
+
+If present, a second CSV holds each night's cloud itself: the share of the night's 2-second samples falling in each cell of a fixed grid, 0.5 cmH2O of PS by 0.1 cmH2O/s of rate of change. Long format, one row per night per occupied cell; empty cells are omitted, and each night's \`pct_of_night\` sums to 100. Because the grid is the same for every night, nights and eras can be compared cell by cell, averaged, differenced or clustered. Columns: \`date\`, \`era\`, \`ps_bin_low_cmh2o\`, \`ps_bin_high_cmh2o\`, \`slew_bin_low_cmh2o_per_s\`, \`slew_bin_high_cmh2o_per_s\`, \`pct_of_night\`. Slew bins are centred on zero: the middle bin (-0.05 to +0.05) holds samples where PS sat still or barely moved; bins above it are PS rising, below it falling. Unlike the picture in Headroom, the grid is unsmoothed.
+
 ## Eras in this export
 
 ${eras || "- None marked."}
@@ -903,7 +961,7 @@ ${eras || "- None marked."}
 - Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
 `;
 }
-const HEADROOM_VERSION = "v0.2";
+const HEADROOM_VERSION = "v0.3";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
@@ -1134,6 +1192,12 @@ $("saveNightPng").addEventListener("click", async () => { const r = state.rows[s
 $("saveNightCsv").addEventListener("click", () => { const r = state.rows[state.sel]; if (r) save(`headroom-${r.night.date}.csv`, CSV_HEAD.join(",") + "\n" + csvRow(r) + "\n"); });
 $("saveAllCsv").addEventListener("click", () => { if (state.rows.length) save(`headroom-${state.rows[0].night.date}-to-${state.rows[state.rows.length - 1].night.date}.csv`, csvAll()); });
 $("saveErasPng").addEventListener("click", async () => { if (state.rows.length) save("headroom-eras.png", await toBlob($("eras"))); });
+$("saveGrid").addEventListener("click", () => { if (state.rows.length) save(`headroom-cloud-grid-${state.rows[0].night.date}-to-${state.rows[state.rows.length - 1].night.date}.csv`, csvGrid()); });
+$("copyGrid").addEventListener("click", async () => {
+  if (!state.rows.length) return;
+  try { await navigator.clipboard.writeText(csvGrid()); setStatus("Copied the cloud grid as CSV."); }
+  catch (e) { setStatus("This view would not allow copying to the clipboard."); }
+});
 $("saveGuide").addEventListener("click", () => { if (state.rows.length) save("headroom-column-guide.md", columnGuide()); });
 $("copyGuide").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(columnGuide()); setStatus("Copied the column guide. Paste it alongside the CSV."); }
@@ -1154,13 +1218,13 @@ if (!window.claude) {
     return { status: "saved" };
   } };
   document.querySelectorAll(".dl").forEach(b => b.hidden = false);
-  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true;
+  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true; $("copyGrid").hidden = true;
 }
 if (window.claude && claude.use) claude.use("downloads").then(d => {
   if (!d) return;
   state.dl = d;
   document.querySelectorAll(".dl").forEach(b => b.hidden = false);
-  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true;
+  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true; $("copyGrid").hidden = true;
 }).catch(() => {});
 {
   const cv = $("tunnel");
