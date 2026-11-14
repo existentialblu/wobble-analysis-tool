@@ -282,9 +282,9 @@ function edfParse(buf, want) {
       if (i16) { const q = p >> 1; for (let k = 0; k < spr; k++) a[o + k] = i16[q + k] * gain + c; }
       else for (let k = 0; k < spr; k++) a[o + k] = dv.getInt16(p + k * 2, true) * gain + c;
     }
-    out[s.label] = { data: a, dt: recDur / s.spr };
+    out[s.label] = { data: a, dt: recDur / s.spr, res: Math.abs(gain) };
   }
-  return { startMs, sig: out };
+  return { startMs, sig: out, recId: str(88, 80) };
 }
 
 function nightKey(startMs) { return new Date(startMs - 12 * 3600e3).toISOString().slice(0, 10); }
@@ -301,7 +301,9 @@ function pldSession(buf) {
     const a = ip.data[i], b = ep.data[i];
     if (a > 1 && b > 1 && a - b > -0.5 && a < 45) { ps[i] = Math.max(0, a - b); good++; } else ps[i] = NaN;
   }
-  return good ? { startMs: e.startMs, dt: ip.dt, ps } : null;
+  if (!good) return null;
+  const tag = k => { const m = e.recId.match(new RegExp(k + "=(\\S+)")); return m ? m[1] : "?"; };
+  return { startMs: e.startMs, dt: ip.dt, ps, machine: `${tag("SRN")} MID=${tag("MID")} VID=${tag("VID")}`, res: ip.res };
 }
 
 /* STR.edf -> { "YYYY-MM-DD": {minPS, maxPS, epap} } */
@@ -380,7 +382,7 @@ function buildNights(sessions, prev) {
     const len = ss.reduce((a, s) => a + s.ps.length + 1, 0), ps = new Float32Array(len);
     let o = 0;
     for (const s of ss) { ps.set(s.ps, o); o += s.ps.length; ps[o++] = NaN; }
-    return { date, dt: ss[0].dt, ps, sig };
+    return { date, dt: ss[0].dt, ps, sig, machine: [...new Set(ss.map(s => s.machine || "?"))].join("; "), res: Math.min(...ss.map(s => s.res || Infinity)) };
   });
 }
 
@@ -534,13 +536,16 @@ const GRID_PS = 0.5, GRID_S = 0.1;
 function nightCloud(n) {
   if (n.cloud) return n.cloud;
   const ps = n.ps, dt = n.dt, cells = new Map();
-  let c = 0, sp = 0, sp2 = 0, ss = 0, ss2 = 0, ss3 = 0, sps = 0, quiet = 0;
+  let c = 0, sp = 0, sp2 = 0, ss = 0, ss2 = 0, ss3 = 0, sps = 0, quiet = 0, moves = 0, single = 0;
+  const step = n.res && Number.isFinite(n.res) ? n.res : 0.02;
   for (let i = 1; i < ps.length; i++) {
     const a = ps[i - 1], b = ps[i];
     if (a !== a || b !== b) continue;
     const s = (b - a) / dt;
     c++; sp += b; sp2 += b * b; ss += s; ss2 += s * s; ss3 += s * s * s; sps += b * s;
     if (Math.abs(s) < 0.005) quiet++;
+    const d = Math.abs(b - a);
+    if (d > step * 0.5) { moves++; if (d < step * 1.5) single++; }
     const key = Math.floor(b / GRID_PS) + "|" + Math.round(s / GRID_S);   // slew bins centred on zero
     cells.set(key, (cells.get(key) || 0) + 1);
   }
@@ -554,7 +559,8 @@ function nightCloud(n) {
     psMean: mp, psSd: sdp, slewSd: sds,
     slewSkew: sds > 0 ? m3 / (sds * sds * sds) : 0,
     corr: sdp > 0 && sds > 0 ? (sps / c - mp * ms) / (sdp * sds) : 0,
-    quietPct: 100 * quiet / c, entropy: H, cellsUsed: cells.size
+    quietPct: 100 * quiet / c, entropy: H, cellsUsed: cells.size,
+    step, singleStepPct: moves ? 100 * single / moves : 0
   });
 }
 const riseFall = k => (-k.By > 0 ? k.Ty / -k.By : NaN);
@@ -845,7 +851,9 @@ function drawNight() {
     ["Kite: usual PS range", fmt(k.L) + "–" + fmt(k.R), "10th to 90th percentile"],
     ["Kite: rise speed", fmt(k.Ty, 2) + " cmH₂O/s", "How fast PS typically climbed"],
     ["Kite: fall speed", fmt(-k.By, 2) + " cmH₂O/s", "How fast PS typically fell"],
-    ["Rise ÷ fall", Number.isFinite(ratio) ? ratio.toFixed(2) : "n/a", "Below 1: climbs more gently than it backs off"]
+    ["Rise ÷ fall", Number.isFinite(ratio) ? ratio.toFixed(2) : "n/a", "Below 1: climbs more gently than it backs off"],
+    ["Single-step moves", fmt(nightCloud(r.night).singleStepPct) + " %", "Changes of exactly one recording step; high can mean logging dither"],
+    ["Machine", esc(r.night.machine || "unknown"), "Serial and model/version codes from the file header"]
   ];
   $("tiles").innerHTML = tiles.map(([a, v, hint]) => `<div class="tile"><div class="k">${a}</div><div class="v">${v}</div>${hint ? `<div class="h">${hint}</div>` : ""}</div>`).join("");
   const ps = r.night.ps, dt = r.night.dt, ink = css("--ink"), muted = css("--muted"), line = css("--line"), accent = css("--accent"), mark = css("--mark"), panel = css("--panel");
@@ -906,7 +914,10 @@ const CSV_COLS = [
   ["cloud_ps_slew_corr", "Cloud: correlation between PS and its rate of change. Negative: PS tends to be falling when high and rising when low."],
   ["cloud_pct_still", "Cloud: percent of samples where PS did not move (|rate| below 0.005 cmH2O/s)."],
   ["cloud_entropy_bits", "Cloud: Shannon entropy of the fixed grid (0.5 cmH2O x 0.1 cmH2O/s cells, slew bins centred on zero). Higher: the night spread over more of the plane."],
-  ["cloud_cells_used", "Cloud: number of fixed-grid cells the night visited."]
+  ["cloud_cells_used", "Cloud: number of fixed-grid cells the night visited."],
+  ["ps_step_cmh2o", "Smallest PS change the file can record (from the EDF header's scaling)."],
+  ["pct_moves_single_step", "Of the samples where PS changed, the percent that changed by exactly one recording step. High values mean PS was dithering by the smallest possible amount, which can come from how a machine or firmware logs rather than from therapy."],
+  ["machine", "Machine serial and model/version codes from the PLD file header (SRN, MID, VID). Several are listed if sessions that night came from different machines or firmware."]
 ];
 const CSV_HEAD = CSV_COLS.map(c => c[0]);
 function csvRow(r) {
@@ -915,7 +926,8 @@ function csvRow(r) {
   return [r.night.date, q(e ? e.label : ""), r.hours.toFixed(2), r.minPS.toFixed(2), r.maxPS.toFixed(2), r.src, r.floorPct.toFixed(2), r.ceilPct.toFixed(2),
     r.travel.toFixed(3), r.runSec.toFixed(2), k.L.toFixed(2), k.R.toFixed(2), k.Tx.toFixed(2), k.Ty.toFixed(3), k.Bx.toFixed(2), (-k.By).toFixed(3),
     Number.isFinite(ratio) ? ratio.toFixed(3) : "",
-    ...(() => { const c = nightCloud(r.night); return c.n ? [c.psMean.toFixed(3), c.psSd.toFixed(3), c.slewSd.toFixed(4), c.slewSkew.toFixed(3), c.corr.toFixed(3), c.quietPct.toFixed(2), c.entropy.toFixed(3), c.cellsUsed] : ["", "", "", "", "", "", "", ""]; })()].join(",");
+    ...(() => { const c = nightCloud(r.night); return c.n ? [c.psMean.toFixed(3), c.psSd.toFixed(3), c.slewSd.toFixed(4), c.slewSkew.toFixed(3), c.corr.toFixed(3), c.quietPct.toFixed(2), c.entropy.toFixed(3), c.cellsUsed, c.step.toFixed(3), c.singleStepPct.toFixed(2)] : ["", "", "", "", "", "", "", "", "", ""]; })(),
+    q(r.night.machine || "")].join(",");
 }
 /* The cloud itself: one row per night per occupied cell of the fixed grid. */
 function csvGrid() {
@@ -956,12 +968,13 @@ ${eras || "- None marked."}
 ## Things to keep in mind
 
 - This is not a medical device and its numbers are not clinical measures. Nothing here is a reason to change PAP settings or medication without a clinician.
+- Compare nights from different machines or firmware with care: check the \`machine\` and \`pct_moves_single_step\` columns. A change in logging can move stillness, the kite's tips and the cloud columns without any change in therapy.
 - When limit_source is "observed", the limits are estimates: the floor is that night's lowest PS, the ceiling the highest PS within a week either side.
 - The kite reflects the whole loop (breathing plus machine). A change in it can come from the machine's response, from breathing itself, or both.
 - Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
 `;
 }
-const HEADROOM_VERSION = "v0.3";
+const HEADROOM_VERSION = "v0.4";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
