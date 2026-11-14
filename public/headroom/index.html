@@ -303,7 +303,9 @@ function pldSession(buf) {
   }
   if (!good) return null;
   const tag = k => { const m = e.recId.match(new RegExp(k + "=(\\S+)")); return m ? m[1] : "?"; };
-  return { startMs: e.startMs, dt: ip.dt, ps, machine: `${tag("SRN")} MID=${tag("MID")} VID=${tag("VID")}`, res: ip.res };
+  return { startMs: e.startMs, dt: ip.dt, ps, machine: `${tag("SRN")} MID=${tag("MID")} VID=${tag("VID")}`,
+    // PS = inspiratory minus expiratory, so its smallest recordable change is the finer of the two channels' steps
+    res: Math.min(ip.res || Infinity, ep.res || Infinity) };
 }
 
 /* STR.edf -> { "YYYY-MM-DD": {minPS, maxPS, epap} } */
@@ -917,8 +919,8 @@ const CSV_COLS = [
   ["cloud_pct_still", "Cloud: percent of samples where PS did not move, or moved by only one recording step."],
   ["cloud_entropy_bits", "Cloud: Shannon entropy of the fixed grid (0.5 cmH2O x 0.1 cmH2O/s cells, slew bins centred on zero). Higher: the night spread over more of the plane."],
   ["cloud_cells_used", "Cloud: number of fixed-grid cells the night visited."],
-  ["ps_step_cmh2o", "Smallest PS change the file can record (from the EDF header's scaling)."],
-  ["pct_moves_single_step", "Of the samples where PS changed, the percent that changed by exactly one recording step. High values mean PS was dithering by the smallest possible amount, which can come from how a machine or firmware logs rather than from therapy."],
+  ["ps_step_cmh2o", "Smallest PS change the file can record: the finer of the inspiratory and expiratory pressure channels' steps, from the EDF header's scaling."],
+  ["pct_moves_single_step", "Of the samples where PS changed, the percent that changed by one recording step (between 0.5 and 1.5 times ps_step_cmh2o). High values mean PS was dithering by the smallest possible amount, which can come from how a machine or firmware logs rather than from therapy."],
   ["machine", "Machine serial and model/version codes from the PLD file header (SRN, MID, VID). Several are listed if sessions that night came from different machines or firmware."]
 ];
 const CSV_HEAD = CSV_COLS.map(c => c[0]);
@@ -976,7 +978,7 @@ ${eras || "- None marked."}
 - Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
 `;
 }
-const HEADROOM_VERSION = "v0.5";
+const HEADROOM_VERSION = "v0.5.1";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
