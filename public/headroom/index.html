@@ -46,6 +46,14 @@ header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
 h1 { font-size: 2rem; font-stretch: 80%; font-weight: 700; letter-spacing: 0.01em; margin: 0; }
 h2 { font-size: 1.05rem; font-stretch: 85%; font-weight: 600; margin: 0; text-wrap: balance; }
 .sub { color: var(--muted); margin: 0; }
+.read-p { max-width: 70ch; margin: 0; }
+.steps { margin: 0; padding-left: 1.3rem; max-width: 70ch; display: flex; flex-direction: column; gap: 4px; }
+.key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--muted); margin: 0; }
+.key span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 16px; height: 10px; border-radius: 2px; }
+.tile .h { font-size: 0.72rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+.guide p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 0.93rem; }
+.guide h3 { font-size: 0.95rem; font-stretch: 85%; margin: 6px 0 2px; color: var(--ink); }
 .wat-home-nav { margin: 0; }
 .wat-home-link { display: inline-flex; align-items: center; min-height: 38px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--accent); font: 600 13px/1.4 var(--display); text-decoration: none; }
 .wat-home-link:hover { border-color: var(--accent); }
@@ -104,6 +112,16 @@ details summary { cursor: pointer; font-weight: 600; }
     <p class="sub">Where an ASV spends its pressure support range, one slice per night.</p>
   </header>
 
+  <section class="panel intro" aria-labelledby="h-intro">
+    <h2 id="h-intro">What this shows</h2>
+    <p class="read-p">An ASV raises and lowers its pressure support (PS) all night to keep your breathing steady. Headroom shows how it went about that each night: how much of its range it used, how fast it moved, and how often it ran into its limits. It's experimental and not medical advice.</p>
+    <ol class="steps">
+      <li><strong>Load</strong> your SD card's DATALOG folder, or some PLD files. Nothing is uploaded.</li>
+      <li><strong>Move along the track</strong> with scroll, drag, the arrow keys or Play. Each slice is one night.</li>
+      <li><strong>Mark</strong> the first night after something changed, such as settings or a medication, then switch to <em>Difference from baseline</em> to see what moved.</li>
+    </ol>
+  </section>
+
   <section class="panel" aria-labelledby="h-load">
     <div class="row spread">
       <h2 id="h-load">Data</h2>
@@ -134,7 +152,7 @@ details summary { cursor: pointer; font-weight: 600; }
 
   <section class="panel" aria-labelledby="h-room">
     <div class="row spread">
-      <h2 id="h-room">The tunnel</h2>
+      <h2 id="h-room">The track</h2>
       <span class="sub" style="font-size:0.85rem">Scroll, drag or use arrow keys to move through time</span>
     </div>
     <div class="row">
@@ -144,11 +162,16 @@ details summary { cursor: pointer; font-weight: 600; }
       </div>
       <label class="check" for="baseline">Baseline <select id="baseline"></select></label>
       <label class="check" for="contrast">Contrast <input type="range" id="contrast" min="1" max="10" step="0.5" value="3"></label>
-      <label class="check" for="kiteOn"><input type="checkbox" id="kiteOn" checked> Shape</label>
+      <label class="check" for="kiteOn"><input type="checkbox" id="kiteOn" checked> Kite</label>
       <button type="button" id="markBtn">Mark this night</button>
     </div>
     <p id="legend" class="sub" style="font-size:0.85rem;margin:0" hidden><span style="color:var(--accent);font-weight:600">Teal</span>: more time there than the baseline era. <span style="color:var(--less);font-weight:600">Violet</span>: less. Blank: same as baseline.</p>
     <canvas id="tunnel" tabindex="0" aria-label="Nights as slices in a tunnel. Arrow keys move forward and back in time."></canvas>
+    <p class="key" aria-label="Key">
+      <span><i class="sw" style="background:var(--accent)"></i>Where PS spent the night (left to right: PS; above the middle: rising; below: falling)</span>
+      <span><i class="sw" style="background:var(--mark)"></i>PS limits, thicker when PS sat on them</span>
+      <span><i class="sw" style="background:transparent;border:2px solid var(--ink)"></i>The kite, a four-corner summary</span>
+    </p>
     <p id="empty" class="sub" hidden>No nights loaded. Add files above, or show the example data.</p>
     <div class="row">
       <button type="button" id="prev" aria-label="Previous night">◀</button>
@@ -175,7 +198,9 @@ details summary { cursor: pointer; font-weight: 600; }
         <span class="sub" style="font-size:0.85rem">Each era pooled into one slice. Click one to jump there.</span>
         <button type="button" class="dl" id="saveErasPng" hidden>Save eras image</button>
         <button type="button" class="dl" id="saveAllCsv" hidden>Save all nights (CSV)</button>
+        <button type="button" class="dl" id="saveGuide" hidden>Save column guide (MD)</button>
         <button type="button" id="copyAllCsv">Copy all nights (CSV)</button>
+        <button type="button" id="copyGuide">Copy column guide</button>
       </div>
     </div>
     <canvas id="eras" aria-label="One pooled slice per era"></canvas>
@@ -197,12 +222,19 @@ details summary { cursor: pointer; font-weight: 600; }
     </div>
   </section>
 
-  <section class="read">
-    <p>Each slice is one night. Left to right is <strong>pressure support</strong>; up and down is <strong>slew</strong>, how fast PS was moving, rising above the middle line and falling below it. Darker means more time spent there, from the machine's 2 second samples.</p>
-    <p>The orange lines are that night's <strong>floor</strong> and <strong>ceiling</strong>, thicker the more of the night PS sat on them. Joined slice to slice they make the walls, so a settings change shows as a step in the wall.</p>
-    <p>The dark <strong>shape</strong> sums up each night with four corners. Left and right are where PS usually sits low and high (10th and 90th percentiles). Top is how fast it typically climbs and bottom how fast it falls (90th percentiles of slew), each placed at the average PS while climbing or falling. In the difference view, the dashed shape is the baseline era's.</p>
+  <section class="panel guide" aria-labelledby="h-guide">
+    <h2 id="h-guide">How to read it</h2>
+    <h3>The cloud</h3>
+    <p>Each slice is one night. Left to right is pressure support (PS); up and down is how fast PS was moving: above the middle line it was rising, below it falling. Darker means more of the night was spent there, from the machine's 2-second samples.</p>
+    <h3>The orange lines</h3>
+    <p>The night's PS limits: the floor (minimum) and the ceiling (maximum). They get thicker the more of the night PS sat on them. Joined from slice to slice they form rails, so a settings change shows as a step.</p>
+    <h3>The kite</h3>
+    <p>A four-corner summary of each night. Left and right are where PS usually sat low and high (its 10th and 90th percentiles). Top is how fast it typically climbed and bottom how fast it typically fell (90th percentiles of the rate of change), each placed at the average PS while climbing or falling. In the difference view, the dashed kite is the baseline era's.</p>
     <p>We call it a kite. Strictly it's a four-corner glyph; it only becomes a geometric kite on nights when rises and falls mirror each other, which makes the lopsidedness the interesting part.</p>
-    <p>A calm night is a small smudge near the floor. Pumping stretches into a wide loop through the middle. Ricocheting between the rails piles up dark columns on both orange lines.</p>
+    <h3>Rise ÷ fall</h3>
+    <p>The kite's rise speed divided by its fall speed. Above 1, PS climbed faster than it backed off; below 1, it climbed more gently than it backed off. Whether one is better is an open question; early observations in one person suggest a value somewhat below 1 went with steadier nights.</p>
+    <h3>Common patterns</h3>
+    <p>A calm night is a small smudge near the floor. Pumping stretches into a wide loop through the middle. Bouncing between the limits piles up dark columns on both orange lines.</p>
   </section>
 </main>
 
@@ -495,6 +527,7 @@ function nightKite(n) {
   const mid = (p10 + p90) / 2;
   return (n.kite = { L: p10, R: p90, Tx: nu ? su / nu : mid, Ty: q(up, nu, 0.9), Bx: nd ? sd / nd : mid, By: -q(dn, nd, 0.9) });
 }
+const riseFall = k => (-k.By > 0 ? k.Ty / -k.By : NaN);
 function eraKite(e) {
   const k = { L: 0, R: 0, Tx: 0, Ty: 0, Bx: 0, By: 0 };
   for (const r of e.rows) { const n = nightKite(r.night); for (const f in k) k[f] += n[f]; }
@@ -770,14 +803,21 @@ function drawRoom(jump) {
 function drawNight() {
   const r = state.rows[state.sel];
   if (!r) { $("tiles").innerHTML = ""; Plotly.purge("trace"); Plotly.purge("phase"); return; }
+  const k = nightKite(r.night), ratio = riseFall(k);
   const tiles = [
-    ["Night of", r.night.date], ["Recorded", fmt(r.hours) + " h"], ["At floor", fmt(r.floorPct) + " %"],
-    ["At ceiling", fmt(r.ceilPct) + " %"], ["PS travel", fmt(r.travel, 2) + " /min"], ["Average one-way run", fmt(r.runSec) + " s"],
-    ["Rails, " + r.src, fmt(r.minPS) + "–" + fmt(r.maxPS)]
+    ["Night of", r.night.date, ""],
+    ["Recorded", fmt(r.hours) + " h", "Time with pressure data"],
+    ["Time on the floor", fmt(r.floorPct) + " %", "Share of the night PS sat at its minimum"],
+    ["Time on the ceiling", fmt(r.ceilPct) + " %", "Share of the night PS sat at its maximum"],
+    ["How much PS moved", fmt(r.travel, 2) + " cmH₂O/min", "Ups and downs added together"],
+    ["Typical push", fmt(r.runSec) + " s", "Average time PS kept going one way before reversing"],
+    ["PS limits", fmt(r.minPS) + "–" + fmt(r.maxPS), { "STR.edf": "From the machine's settings file", observed: "Estimated from the data", typed: "Typed under Rail settings" }[r.src]],
+    ["Kite: usual PS range", fmt(k.L) + "–" + fmt(k.R), "10th to 90th percentile"],
+    ["Kite: rise speed", fmt(k.Ty, 2) + " cmH₂O/s", "How fast PS typically climbed"],
+    ["Kite: fall speed", fmt(-k.By, 2) + " cmH₂O/s", "How fast PS typically fell"],
+    ["Rise ÷ fall", Number.isFinite(ratio) ? ratio.toFixed(2) : "n/a", "Below 1: climbs more gently than it backs off"]
   ];
-  const k = nightKite(r.night);
-  tiles.push(["Shape: PS spread", fmt(k.L) + "–" + fmt(k.R)], ["Shape: rise speed", fmt(k.Ty, 2) + " /s"], ["Shape: fall speed", fmt(-k.By, 2) + " /s"]);
-  $("tiles").innerHTML = tiles.map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  $("tiles").innerHTML = tiles.map(([a, v, hint]) => `<div class="tile"><div class="k">${a}</div><div class="v">${v}</div>${hint ? `<div class="h">${hint}</div>` : ""}</div>`).join("");
   const ps = r.night.ps, dt = r.night.dt, ink = css("--ink"), muted = css("--muted"), line = css("--line"), accent = css("--accent"), mark = css("--mark"), panel = css("--panel");
   const B = Math.max(1, Math.ceil(ps.length / 1500)), tx = [], ty = [];
   for (let i = 0; i < ps.length; i += B) {
@@ -811,15 +851,59 @@ function drawNight() {
 }
 
 /* ---------- Exports ---------- */
-const CSV_HEAD = ["date", "era", "hours", "ps_min_rail", "ps_max_rail", "rail_source", "floor_pct", "ceiling_pct", "travel_cmh2o_per_min", "avg_one_way_run_s",
-  "shape_ps_p10", "shape_ps_p90", "shape_rise_ps", "shape_rise_speed", "shape_fall_ps", "shape_fall_speed"];
+const CSV_COLS = [
+  ["date", "Night, as YYYY-MM-DD. Sessions starting before noon count toward the previous night."],
+  ["era", "Label of the era this night belongs to (set with Mark this night). \"Start\" before the first mark."],
+  ["hours_recorded", "Hours of pressure data that night."],
+  ["ps_min_limit_cmh2o", "PS floor (minimum) in force."],
+  ["ps_max_limit_cmh2o", "PS ceiling (maximum) in force."],
+  ["limit_source", "Where the limits came from: STR.edf (machine settings file), observed (estimated from the data), or typed (entered by hand)."],
+  ["pct_night_at_floor", "Percent of the night PS was within the rail tolerance (default 0.2 cmH2O) of the floor."],
+  ["pct_night_at_ceiling", "Percent of the night PS was within the rail tolerance of the ceiling."],
+  ["ps_travel_cmh2o_per_min", "Total PS movement, ups and downs added together, per minute."],
+  ["avg_one_way_run_s", "Average seconds PS kept moving in one direction before reversing."],
+  ["kite_ps_p10_cmh2o", "Kite left corner: 10th percentile of PS."],
+  ["kite_ps_p90_cmh2o", "Kite right corner: 90th percentile of PS."],
+  ["kite_rise_at_ps_cmh2o", "Kite top corner position: average PS while PS was rising."],
+  ["kite_rise_speed_cmh2o_per_s", "Kite top corner height: 90th percentile of rising rate of change."],
+  ["kite_fall_at_ps_cmh2o", "Kite bottom corner position: average PS while PS was falling."],
+  ["kite_fall_speed_cmh2o_per_s", "Kite bottom corner depth: 90th percentile of falling rate of change, as a positive number."],
+  ["rise_fall_ratio", "kite_rise_speed divided by kite_fall_speed. Below 1: PS climbs more gently than it backs off. Blank if PS never fell."]
+];
+const CSV_HEAD = CSV_COLS.map(c => c[0]);
 function csvRow(r) {
-  const k = nightKite(r.night), e = state.eras[r.era];
+  const k = nightKite(r.night), e = state.eras[r.era], ratio = riseFall(k);
   const q = v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   return [r.night.date, q(e ? e.label : ""), r.hours.toFixed(2), r.minPS.toFixed(2), r.maxPS.toFixed(2), r.src, r.floorPct.toFixed(2), r.ceilPct.toFixed(2),
-    r.travel.toFixed(3), r.runSec.toFixed(2), k.L.toFixed(2), k.R.toFixed(2), k.Tx.toFixed(2), k.Ty.toFixed(3), k.Bx.toFixed(2), (-k.By).toFixed(3)].join(",");
+    r.travel.toFixed(3), r.runSec.toFixed(2), k.L.toFixed(2), k.R.toFixed(2), k.Tx.toFixed(2), k.Ty.toFixed(3), k.Bx.toFixed(2), (-k.By).toFixed(3),
+    Number.isFinite(ratio) ? ratio.toFixed(3) : ""].join(",");
 }
 const csvAll = () => [CSV_HEAD.join(","), ...state.rows.map(csvRow)].join("\n") + "\n";
+
+/* A plain-language description of the CSV, meant to be handed to a person or an AI alongside it. */
+function columnGuide() {
+  const eras = (state.eras || []).filter(e => e.rows.length).map(e => `- ${e.label}: ${e.rows[0].night.date} to ${e.rows[e.rows.length - 1].night.date} (${e.rows.length} nights)`).join("\n");
+  return `# Headroom export: column guide
+
+Exported from Headroom ${HEADROOM_VERSION} (https://wobble-analysis-tool.xyz/headroom/), an experimental tool. One row per night of ResMed ASV data. Pressure support (PS) is inspiratory minus expiratory pressure, from the machine's 2-second samples. Only ASV sessions are included; sessions with fixed pressure support are skipped.
+
+## Columns
+
+${CSV_COLS.map(([n, d]) => `- \`${n}\`: ${d}`).join("\n")}
+
+## Eras in this export
+
+${eras || "- None marked."}
+
+## Things to keep in mind
+
+- This is not a medical device and its numbers are not clinical measures. Nothing here is a reason to change PAP settings or medication without a clinician.
+- When limit_source is "observed", the limits are estimates: the floor is that night's lowest PS, the ceiling the highest PS within a week either side.
+- The kite reflects the whole loop (breathing plus machine). A change in it can come from the machine's response, from breathing itself, or both.
+- Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
+`;
+}
+const HEADROOM_VERSION = "v0.2";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
@@ -852,10 +936,11 @@ function nightCanvas(r) {
   const k = nightKite(r.night), nums = [
     ["Recorded", fmt(r.hours) + " h"], ["Rails (" + r.src + ")", fmt(r.minPS) + "–" + fmt(r.maxPS) + " cmH₂O"], ["At floor", fmt(r.floorPct) + " %"],
     ["At ceiling", fmt(r.ceilPct) + " %"], ["PS travel", fmt(r.travel, 2) + " cmH₂O/min"], ["Average one-way run", fmt(r.runSec) + " s"],
-    ["Shape: PS spread", fmt(k.L) + "–" + fmt(k.R) + " cmH₂O"], ["Shape: rise speed", fmt(k.Ty, 2) + " cmH₂O/s at " + fmt(k.Tx)], ["Shape: fall speed", fmt(-k.By, 2) + " cmH₂O/s at " + fmt(k.Bx)]
+    ["Kite: usual PS range", fmt(k.L) + "–" + fmt(k.R) + " cmH₂O"], ["Kite: rise speed", fmt(k.Ty, 2) + " cmH₂O/s at " + fmt(k.Tx)], ["Kite: fall speed", fmt(-k.By, 2) + " cmH₂O/s at " + fmt(k.Bx)],
+    ["Rise ÷ fall", Number.isFinite(riseFall(k)) ? riseFall(k).toFixed(2) : "n/a"]
   ];
   ctx.textAlign = "left";
-  nums.forEach(([a, b], i) => { const y = y0 + 10 + i * 56; ctx.fillStyle = muted; ctx.font = `15px Archivo, Arial, sans-serif`; ctx.fillText(a, 980, y); ctx.fillStyle = ink; ctx.font = `500 21px "IBM Plex Mono", monospace`; ctx.fillText(b, 980, y + 25); });
+  nums.forEach(([a, b], i) => { const y = y0 + 4 + i * 52; ctx.fillStyle = muted; ctx.font = `15px Archivo, Arial, sans-serif`; ctx.fillText(a, 980, y); ctx.fillStyle = ink; ctx.font = `500 21px "IBM Plex Mono", monospace`; ctx.fillText(b, 980, y + 25); });
   return cv;
 }
 
@@ -1049,6 +1134,11 @@ $("saveNightPng").addEventListener("click", async () => { const r = state.rows[s
 $("saveNightCsv").addEventListener("click", () => { const r = state.rows[state.sel]; if (r) save(`headroom-${r.night.date}.csv`, CSV_HEAD.join(",") + "\n" + csvRow(r) + "\n"); });
 $("saveAllCsv").addEventListener("click", () => { if (state.rows.length) save(`headroom-${state.rows[0].night.date}-to-${state.rows[state.rows.length - 1].night.date}.csv`, csvAll()); });
 $("saveErasPng").addEventListener("click", async () => { if (state.rows.length) save("headroom-eras.png", await toBlob($("eras"))); });
+$("saveGuide").addEventListener("click", () => { if (state.rows.length) save("headroom-column-guide.md", columnGuide()); });
+$("copyGuide").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(columnGuide()); setStatus("Copied the column guide. Paste it alongside the CSV."); }
+  catch (e) { setStatus("This view would not allow copying to the clipboard."); }
+});
 $("copyAllCsv").addEventListener("click", async () => {
   if (!state.rows.length) return;
   try { await navigator.clipboard.writeText(csvAll()); setStatus(`Copied ${state.rows.length} nights as CSV.`); }
@@ -1064,13 +1154,13 @@ if (!window.claude) {
     return { status: "saved" };
   } };
   document.querySelectorAll(".dl").forEach(b => b.hidden = false);
-  $("copyAllCsv").hidden = true;
+  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true;
 }
 if (window.claude && claude.use) claude.use("downloads").then(d => {
   if (!d) return;
   state.dl = d;
   document.querySelectorAll(".dl").forEach(b => b.hidden = false);
-  $("copyAllCsv").hidden = true;
+  $("copyAllCsv").hidden = true; $("copyGuide").hidden = true;
 }).catch(() => {});
 {
   const cv = $("tunnel");
