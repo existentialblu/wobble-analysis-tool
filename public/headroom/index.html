@@ -519,12 +519,14 @@ function nightKite(n) {
   if (n.kite) return n.kite;
   const ps = n.ps, dt = n.dt, B = 501, up = new Uint32Array(B), dn = new Uint32Array(B);
   let nu = 0, nd = 0, su = 0, sd = 0;
+  const thr = (n.res && Number.isFinite(n.res) ? n.res : 0.02) * 1.5;   // moves of one recording step or less don't count
   for (let i = 1; i < ps.length; i++) {
     const a = ps[i - 1], b = ps[i];
     if (a !== a || b !== b) continue;
     const s = (b - a) / dt;
-    if (s > 0.005) { up[Math.min(B - 1, Math.round(s * 100))]++; nu++; su += (a + b) / 2; }
-    else if (s < -0.005) { dn[Math.min(B - 1, Math.round(-s * 100))]++; nd++; sd += (a + b) / 2; }
+    if (Math.abs(b - a) < thr) continue;
+    if (s > 0) { up[Math.min(B - 1, Math.round(s * 100))]++; nu++; su += (a + b) / 2; }
+    else { dn[Math.min(B - 1, Math.round(-s * 100))]++; nd++; sd += (a + b) / 2; }
   }
   const q = (hist, n, f) => { if (!n) return 0; const t = Math.floor(f * n); let c = 0; for (let k = 0; k < B; k++) { c += hist[k]; if (c > t) return k / 100; } return (B - 1) / 100; };
   const [p10, p90] = quantiles(ps, 0.1, 0.9);
@@ -543,8 +545,8 @@ function nightCloud(n) {
     if (a !== a || b !== b) continue;
     const s = (b - a) / dt;
     c++; sp += b; sp2 += b * b; ss += s; ss2 += s * s; ss3 += s * s * s; sps += b * s;
-    if (Math.abs(s) < 0.005) quiet++;
     const d = Math.abs(b - a);
+    if (d < step * 1.5) quiet++;
     if (d > step * 0.5) { moves++; if (d < step * 1.5) single++; }
     const key = Math.floor(b / GRID_PS) + "|" + Math.round(s / GRID_S);   // slew bins centred on zero
     cells.set(key, (cells.get(key) || 0) + 1);
@@ -903,16 +905,16 @@ const CSV_COLS = [
   ["kite_ps_p10_cmh2o", "Kite left corner: 10th percentile of PS."],
   ["kite_ps_p90_cmh2o", "Kite right corner: 90th percentile of PS."],
   ["kite_rise_at_ps_cmh2o", "Kite top corner position: average PS while PS was rising."],
-  ["kite_rise_speed_cmh2o_per_s", "Kite top corner height: 90th percentile of rising rate of change."],
+  ["kite_rise_speed_cmh2o_per_s", "Kite top corner height: 90th percentile of rising rate of change, ignoring moves of a single recording step."],
   ["kite_fall_at_ps_cmh2o", "Kite bottom corner position: average PS while PS was falling."],
-  ["kite_fall_speed_cmh2o_per_s", "Kite bottom corner depth: 90th percentile of falling rate of change, as a positive number."],
+  ["kite_fall_speed_cmh2o_per_s", "Kite bottom corner depth: 90th percentile of falling rate of change, as a positive number, ignoring single-step moves."],
   ["rise_fall_ratio", "kite_rise_speed divided by kite_fall_speed. Below 1: PS climbs more gently than it backs off. Blank if PS never fell."],
   ["cloud_ps_mean_cmh2o", "Cloud: mean PS over the night."],
   ["cloud_ps_sd_cmh2o", "Cloud: standard deviation of PS (how widely PS wandered)."],
   ["cloud_slew_sd_cmh2o_per_s", "Cloud: standard deviation of the rate of change (how vigorously PS moved)."],
   ["cloud_slew_skew", "Cloud: skewness of the rate of change. Negative: falls are sharper and rarer than rises (quick drops, gradual climbs); positive: the reverse."],
   ["cloud_ps_slew_corr", "Cloud: correlation between PS and its rate of change. Negative: PS tends to be falling when high and rising when low."],
-  ["cloud_pct_still", "Cloud: percent of samples where PS did not move (|rate| below 0.005 cmH2O/s)."],
+  ["cloud_pct_still", "Cloud: percent of samples where PS did not move, or moved by only one recording step."],
   ["cloud_entropy_bits", "Cloud: Shannon entropy of the fixed grid (0.5 cmH2O x 0.1 cmH2O/s cells, slew bins centred on zero). Higher: the night spread over more of the plane."],
   ["cloud_cells_used", "Cloud: number of fixed-grid cells the night visited."],
   ["ps_step_cmh2o", "Smallest PS change the file can record (from the EDF header's scaling)."],
@@ -974,7 +976,7 @@ ${eras || "- None marked."}
 - Resting on the floor through stable breathing is normal for ASV. No value here has an established good or bad range.
 `;
 }
-const HEADROOM_VERSION = "v0.4";
+const HEADROOM_VERSION = "v0.5";
 
 /* A stand-alone picture of one night: slice, rails, shape, axes and the numbers beside it. */
 function nightCanvas(r) {
